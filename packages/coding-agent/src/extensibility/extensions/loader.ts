@@ -39,9 +39,11 @@ import type {
 	AssistantThinkingRenderer,
 	ComposerShapeDefinition,
 	Extension,
+	ExtensionAdvisorOverview,
 	ExtensionAPI,
 	ExtensionContext,
 	ExtensionFactory,
+	ExtensionThinkingState,
 	ExtensionRuntime as IExtensionRuntime,
 	LoadExtensionsResult,
 	MessageRenderer,
@@ -300,6 +302,14 @@ class ConcreteExtensionAPI implements ExtensionAPI, IExtensionRuntime {
 
 	getThinkingLevel(): ThinkingLevel | undefined {
 		return this.runtime.getThinkingLevel();
+	}
+
+	getThinkingState(): ExtensionThinkingState | undefined {
+		return this.runtime.getThinkingState?.();
+	}
+
+	getAdvisorOverview(): ExtensionAdvisorOverview | undefined {
+		return this.runtime.getAdvisorOverview?.();
 	}
 
 	setThinkingLevel(level: ThinkingLevel, persist?: boolean): void {
