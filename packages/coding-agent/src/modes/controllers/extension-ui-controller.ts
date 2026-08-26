@@ -193,6 +193,12 @@ export class ExtensionUiController {
 				return true;
 			},
 			getThinkingLevel: () => this.ctx.session.thinkingLevel,
+			getThinkingState: () => ({
+				configured: this.ctx.session.configuredThinkingLevel(),
+				effective: this.ctx.session.thinkingLevel,
+				resolved: this.ctx.session.autoResolvedThinkingLevel(),
+			}),
+			getAdvisorOverview: () => this.ctx.session.getAdvisorStatusOverview?.(),
 			setThinkingLevel: level => this.ctx.session.setThinkingLevel(level),
 			getServiceTiers: () => this.ctx.session.serviceTierByFamily,
 			setServiceTier: (family, tier) => this.ctx.session.setServiceTierFamily(family, tier),
@@ -426,6 +432,12 @@ export class ExtensionUiController {
 				return true;
 			},
 			getThinkingLevel: () => this.ctx.session.thinkingLevel,
+			getThinkingState: () => ({
+				configured: this.ctx.session.configuredThinkingLevel(),
+				effective: this.ctx.session.thinkingLevel,
+				resolved: this.ctx.session.autoResolvedThinkingLevel(),
+			}),
+			getAdvisorOverview: () => this.ctx.session.getAdvisorStatusOverview?.(),
 			setThinkingLevel: (level, persist) => this.ctx.session.setThinkingLevel(level, persist),
 			getServiceTiers: () => this.ctx.session.serviceTierByFamily,
 			setServiceTier: (family, tier) => this.ctx.session.setServiceTierFamily(family, tier),

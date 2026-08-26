@@ -25,6 +25,7 @@ import type {
 	AssistantMessageEvent,
 	AssistantMessageEventStream,
 	Context,
+	Effort,
 	ImageContent,
 	Model,
 	ModelSpec,
@@ -51,6 +52,7 @@ import type {
 	TUI,
 } from "@oh-my-pi/pi-tui";
 import type { logger as PiLogger } from "@oh-my-pi/pi-utils";
+import type { AdvisorRuntimeStatus } from "../../advisor/config";
 import type { KeybindingsManager } from "../../config/keybindings";
 import type { ModelRegistry } from "../../config/model-registry";
 import type { EditToolDetails } from "../../edit";
@@ -66,6 +68,7 @@ import type { AsyncJobSnapshot } from "../../session/agent-session";
 import type { CompactMode } from "../../session/compact-modes";
 import type { CustomMessage, CustomMessagePayload } from "../../session/messages";
 import type { ReadonlySessionManager, SessionManager } from "../../session/session-manager";
+import type { ConfiguredThinkingLevel } from "../../thinking";
 import type {
 	BashToolDetails,
 	BashToolInput,
@@ -1458,6 +1461,19 @@ export interface ExtensionAPI {
 	/** Get current thinking level. */
 	getThinkingLevel(): ThinkingLevel | undefined;
 
+	/**
+	 * CCS: thinking selector three-state snapshot — configured selector (`"auto"`
+	 * or a concrete level), effective level, and the level auto mode resolved to.
+	 * Returns undefined when the host does not provide the action.
+	 */
+	getThinkingState(): ExtensionThinkingState | undefined;
+
+	/**
+	 * CCS: read-only advisor roster overview for subtitle badges.
+	 * Returns undefined when the host does not provide the action.
+	 */
+	getAdvisorOverview(): ExtensionAdvisorOverview | undefined;
+
 	/** Set thinking level for the current session. */
 	setThinkingLevel(level: ThinkingLevel): void;
 
@@ -1672,6 +1688,26 @@ export type GetServiceTiersHandler = () => ServiceTierByFamily;
 
 export type SetServiceTierHandler = (family: ServiceTierFamily, tier: ServiceTier | undefined) => void;
 
+export type GetThinkingStateHandler = () => ExtensionThinkingState | undefined;
+
+export type GetAdvisorOverviewHandler = () => ExtensionAdvisorOverview | undefined;
+
+/** CCS: thinking selector three-state snapshot for subtitle widgets. */
+export interface ExtensionThinkingState {
+	/** The selector the user configured: `auto` when auto mode is active, else the effective level. */
+	configured: ConfiguredThinkingLevel | undefined;
+	/** The effective thinking level for the current turn. */
+	effective: ThinkingLevel | undefined;
+	/** The level `auto` resolved to (undefined until classified). */
+	resolved: Effort | undefined;
+}
+
+/** CCS: advisor roster overview for subtitle badges. */
+export interface ExtensionAdvisorOverview {
+	configured: boolean;
+	advisors: { name: string; status: AdvisorRuntimeStatus }[];
+}
+
 /** Shared state created by loader, used during registration and runtime. */
 export interface ExtensionRuntimeState {
 	flagValues: Map<string, boolean | string>;
@@ -1695,6 +1731,8 @@ export interface ExtensionActions {
 	getCommands: GetCommandsHandler;
 	setModel: SetModelHandler;
 	getThinkingLevel: GetThinkingLevelHandler;
+	getThinkingState?: GetThinkingStateHandler;
+	getAdvisorOverview?: GetAdvisorOverviewHandler;
 	setThinkingLevel: SetThinkingLevelHandler;
 	getServiceTiers?: GetServiceTiersHandler;
 	setServiceTier?: SetServiceTierHandler;
