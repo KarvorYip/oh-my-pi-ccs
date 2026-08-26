@@ -1151,8 +1151,16 @@ export class InteractiveMode implements InteractiveModeContext {
 		);
 
 		// Get current model info for welcome screen
-		const modelName = this.session.model?.name ?? "Unknown";
-		const providerName = this.session.model?.provider ?? "Unknown";
+		const model = this.session.model;
+		const label = (
+			globalThis as typeof globalThis & {
+				__ompCcsWelcomeLabels?: Map<string, { modelName: string; providerName: string }>;
+			}
+		).__ompCcsWelcomeLabels?.get(`${model?.provider}/${model?.id}`);
+		const modelName =
+			label?.modelName ?? (model?.provider?.startsWith("ccswitch-") ? model?.id : model?.name) ?? "Unknown";
+		const providerName =
+			label?.providerName ?? (model?.provider?.startsWith("ccswitch-") ? model?.api : model?.provider) ?? "Unknown";
 
 		// Prepaint started this scan before the runtime module graph loaded. Only
 		// scan here when no startup composer exists (non-TTY/embedded hosts) or
@@ -5084,8 +5092,16 @@ export class InteractiveMode implements InteractiveModeContext {
 	}
 
 	#updateWelcomeModel(): void {
-		const modelName = this.session.model?.name ?? "Unknown";
-		const providerName = this.session.model?.provider ?? "Unknown";
+		const model = this.session.model;
+		const label = (
+			globalThis as typeof globalThis & {
+				__ompCcsWelcomeLabels?: Map<string, { modelName: string; providerName: string }>;
+			}
+		).__ompCcsWelcomeLabels?.get(`${model?.provider}/${model?.id}`);
+		const modelName =
+			label?.modelName ?? (model?.provider?.startsWith("ccswitch-") ? model?.id : model?.name) ?? "Unknown";
+		const providerName =
+			label?.providerName ?? (model?.provider?.startsWith("ccswitch-") ? model?.api : model?.provider) ?? "Unknown";
 		this.composer.updateWelcome({ modelName, providerName });
 		this.#persistComposerWelcome(modelName, providerName);
 	}
