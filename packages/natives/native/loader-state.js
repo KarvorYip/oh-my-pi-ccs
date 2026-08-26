@@ -155,7 +155,13 @@ export function resolveLoaderCandidates({
 	versionedDir,
 	userDataDir,
 }) {
+	// ccs-custom: prefer the version-pinned natives cache (~/.omp/natives/<version>/)
+	// maintained by the native omp binary. Workspace selfbuilds rebuild while omp
+	// sessions hold the repo-local addon file write-locked; the versioned dir is
+	// never overwritten in place, so rebuilds stay lock-free. Falls through to the
+	// original candidates when it is absent.
 	const baseReleaseCandidates = addonFilenames.flatMap(filename => [
+		path.join(versionedDir, filename),
 		path.join(nativeDir, filename),
 		path.join(execDir, filename),
 	]);
