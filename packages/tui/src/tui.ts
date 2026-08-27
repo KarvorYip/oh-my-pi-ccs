@@ -1826,7 +1826,15 @@ export class TUI extends Container {
 		if (this.#deferRenderForOutputBacklog()) return;
 		const start = this.#renderScheduler.now();
 		this.#lastRenderAt = start;
-		this.#doRender();
+		try {
+			this.#doRender();
+		} catch (error) {
+			// A throwing component must not kill the render loop: an uncaught
+			// error here dumps a raw stack over the TUI and stops painting the
+			// composer (the input area vanishes under the stack). Log to file and
+			// keep the previous frame; the next render retries.
+			logger.error("TUI render failed; keeping last frame", { error: String(error) });
+		}
 		this.#lastFrameCostMs = this.#renderScheduler.now() - start;
 	}
 	/**
