@@ -44,6 +44,7 @@ bun dist\cli.js --version   # 应输出 omp/<版本>
 ```
 
 
+
 ## 关键约束
 
 - **产物必须留在本工作副本运行**：`dist/cli.js` 非自包含——`@babel/parser`、`puppeteer-core`、`@oh-my-pi/pi-natives` 是运行时外部依赖，从工作副本 `node_modules` 解析。不要把 dist 拷到别处单独跑。
@@ -76,7 +77,6 @@ cd ..\coding-agent && bun test test/ccs-composer-pin.test.ts test/ccs-welcome-la
 
 # claude-mem 插件契约测试（注入字节稳定 / 冻结跨进程复用 / worker 降级）
 cd ..\.. && bun test plugins/omp-claude-mem/test/omp-claude-mem.test.ts
-
 # 冒烟（经 omp-ccs 启动链）
 & ~\.local\bin\omp-ccs.ps1 --version        # omp/<版本>
 
