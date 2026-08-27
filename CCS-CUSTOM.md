@@ -11,21 +11,24 @@
 | 3 | `feat(ccs): prefer version-pinned natives cache in loader candidates` | natives loader 把 `~/.omp/natives/<版本>/` 提为首选候选——重建时运行中的 omp 会话对 repo 内 `.node` 持 Windows 写锁，版本化缓存免锁 |
 | 4 | `feat(ccs): pin the input block to the terminal bottom rows` | 输入框自首帧起固定在终端最后一行（Claude Code `NO_FLICKER=1` 观感）；短会话态在 transcript 与输入区之间垫空行补满屏高，history 压力来临时 pad 归零，退休/滚动/resize 语义不变 |
 | 5 | `test(ccs): regression coverage for the four ccs-custom seams` | 上述四项的回归测试（红/绿矩阵：vanilla 全红、本分支全绿；「压力下不垫」守护测试两侧皆绿） |
+| 6 | `feat(ccs): ship the selfbuild release script inside the fork` | 发布脚本入仓（`ccs-selfbuild.py`，仓库根）：零机器绝对路径，终验内联 |
+| 7 | `docs(ccs)` | 本使用说明（构建/接线/验证/回滚/新机迁移/上游同步） |
 
 ## 本机构建与发布
 
-自动（推荐）——`omp-selfbuild.py`（本机 `D:\workspace\claude_settings\.claude\tools\omp-selfbuild.py`）：
+发布脚本随分支分发：仓库根目录 `ccs-selfbuild.py`，不依赖任何机器外文件（终验为内联注入标记检查，不依赖外部补丁器）。
 
 ```powershell
-python D:\workspace\claude_settings\.claude\tools\omp-selfbuild.py
+cd <本仓库克隆目录>
+python ccs-selfbuild.py
 ```
 
-步骤：取 native `omp --version` → `git fetch upstream --tags` → `rebase ccs-custom @ v<版本>`（冲突即 abort 并失败退出）→ 原生 `.node` 就位 → `bun install` → `gen:bundle` → 版本/补丁器终验 → 推送 fork。任一步失败不改动旧 dist。
+步骤：取 native `omp --version`（`~/.local/bin/omp.exe`）→ `git fetch upstream --tags` → `rebase ccs-custom @ v<版本>`（冲突即 abort 并失败退出）→ 原生 `.node` 就位（`~/.omp/natives/<版本>/`）→ `bun install` → `gen:bundle` → 版本冒烟 + 注入标记终验 → 推送 fork。任一步失败不改动旧 dist。
 
 手动等价：
 
 ```powershell
-cd C:\workspace\oh-my-pi-ccs
+cd <本仓库克隆目录>
 git fetch upstream --tags --prune
 git rebase v<版本>
 # natives：确认 %USERPROFILE%\.omp\natives\<版本>\ 存在（跑一次 native omp 即自解压）
@@ -34,6 +37,8 @@ cd packages\coding-agent
 bun run gen:bundle
 bun dist\cli.js --version   # 应输出 omp/<版本>
 ```
+
+
 
 ## 关键约束
 
@@ -49,24 +54,27 @@ bun dist\cli.js --version   # 应输出 omp/<版本>
 {
   "channel": "selfbuild",
   "ompPath": "C:\\Users\\<user>\\.local\\bin\\omp-self.cmd",
-  "distPath": "C:\\workspace\\oh-my-pi-ccs\\packages\\coding-agent\\dist\\cli.js",
-  "selfbuildPath": "D:\\workspace\\claude_settings\\.claude\\tools\\omp-selfbuild.py"
+  "distPath": "<本仓库克隆目录>\\packages\\coding-agent\\dist\\cli.js"
 }
 ```
 
-- `omp-self.cmd`：`bun "C:\workspace\oh-my-pi-ccs\packages\coding-agent\dist\cli.js" %*`
+发布脚本位置无需配置：`omp-ccs.ps1` 从 `distPath` 上溯四级推导仓库根，自动定位同仓的 `ccs-selfbuild.py`（也可用 `OMP_SELFBUILD_SCRIPT` 环境变量或 `selfbuildPath` 键显式覆盖）。
+
+- `omp-self.cmd`：`bun "<本仓库克隆目录>\packages\coding-agent\dist\cli.js" %*`
 - `omp-ccs.ps1` 的 `[omp-selfbuild-sync]` 块：native 或 dist 的 mtime 新于戳（或 dist 缺失）即核对两侧版本，分叉自动跑 selfbuild；失败不写戳下次重试。`channel=selfbuild` 时启动链不走补丁路径。
 
 ## 验证
 
 ```powershell
 # 回归测试（6 例）
-cd C:\workspace\oh-my-pi-ccs\packages\natives && bun test test/ccs-loader-candidates.test.ts
+cd packages\natives && bun test test/ccs-loader-candidates.test.ts
 cd ..\coding-agent && bun test test/ccs-composer-pin.test.ts test/ccs-welcome-labels.test.ts test/ccs-subtitle-actions.test.ts
 
-# 冒烟
+# 冒烟（经 omp-ccs 启动链）
 & ~\.local\bin\omp-ccs.ps1 --version        # omp/<版本>
-python D:\workspace\claude_settings\.claude\tools\omp-core-compat-patch.py welcome-check --target <distPath>
+
+# 注入语义终验（与构建脚本内置检查同源）
+python ccs-selfbuild.py --skip-push
 ```
 
 交互目视：欢迎页显示 CCS 短标签（如 `gpt-5.6-terra`）；输入框贴终端底行不随内容跳动；副栏显示 `⟳ auto`/等级/advisor 徽标。
@@ -83,6 +91,18 @@ python D:\workspace\claude_settings\.claude\tools\omp-core-compat-patch.py welco
 
 bun 通道恢复 `welcome-apply` 自动补丁链（18.0.6 补丁完好）。要撤销单个定制：`git revert <commit>` 后重跑 selfbuild。
 
+## 新机迁移
+
+构建/发布零机器绑定，新机只需：
+
+1. `git clone -b ccs-custom <fork> && cd oh-my-pi-*`（或任意 clone 后 `git checkout ccs-custom`；确认 `origin`=fork、`upstream`=`can1357/oh-my-pi`）；
+2. 安装官方 omp（独立二进制落到 `~\.local\bin\omp.exe`）并跑一次（生成 `~\.omp\natives\<版本>\`）；
+3. `python ccs-selfbuild.py`（自动 fetch/rebase/install/bundle/验证）；
+4. 配置 `~\.local\bin\omp-ccs-paths.json`（上面模板）与 `omp-self.cmd`（`bun "<克隆目录>\packages\coding-agent\dist\cli.js" %*`）。
+
+CCS 生态其余部分（bridge、provider plugin、omp-routing 扩展）不在本仓库，迁移见 `claude_settings` 仓的 `OMP_CCS_UPDATE_REPAIR_HANDOFF.md`。
+
+
 ## 上游同步
 
-上游发新 tag 后：直接启动一次 `omp-ccs`（自动触发 rebase+重建），或手动跑 `omp-selfbuild.py`。rebase 冲突时脚本失败退出且分支原样，人工解决后重跑。完整设计见 `D:\workspace\claude_settings\docs\adr\0005-omp-source-selfbuild-channel.md`。
+上游发新 tag 后：直接启动一次 `omp-ccs`（自动触发 rebase+重建），或手动跑 `python ccs-selfbuild.py`。rebase 冲突时脚本失败退出且分支原样，人工解决后重跑。完整设计见 claude_settings 仓 `docs/adr/0005-omp-source-selfbuild-channel.md`。
