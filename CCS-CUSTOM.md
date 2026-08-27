@@ -44,7 +44,6 @@ bun dist\cli.js --version   # 应输出 omp/<版本>
 ```
 
 
-
 ## 关键约束
 
 - **产物必须留在本工作副本运行**：`dist/cli.js` 非自包含——`@babel/parser`、`puppeteer-core`、`@oh-my-pi/pi-natives` 是运行时外部依赖，从工作副本 `node_modules` 解析。不要把 dist 拷到别处单独跑。
@@ -110,7 +109,6 @@ omp plugin list        # 应出现 omp-claude-mem@0.1.0
   observations、summarize 等协议交互与旧版一致。
 
 回退：`omp plugin uninstall omp-claude-mem` 后恢复旧文件即可。
-
 ## 回滚
 
 `omp-ccs-paths.json` 改回三键即切回 bun 通道（npm 停发前可用）：
