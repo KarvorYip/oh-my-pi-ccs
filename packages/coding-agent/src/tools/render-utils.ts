@@ -107,7 +107,11 @@ export function expandKeyHint(): string {
  * Get first N lines of text as preview, with each line truncated.
  */
 export function getPreviewLines(text: string, maxLines: number, maxLineLen: number, ellipsis?: Ellipsis): string[] {
-	const lines = text.split("\n").filter(l => l.trim());
+	// Failure paths hand renderers whatever they caught — Error objects and
+	// undefined fields are common. Coerce once at this boundary so a malformed
+	// payload renders as text instead of throwing inside the render loop.
+	const source = text == null ? "" : String(text);
+	const lines = source.split("\n").filter(l => l.trim());
 	return lines.slice(0, maxLines).map(l => truncateToWidth(l.trim(), maxLineLen, ellipsis));
 }
 
