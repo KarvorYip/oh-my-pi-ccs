@@ -13,6 +13,7 @@
 | 5 | `test(ccs): regression coverage for the four ccs-custom seams` | 上述四项的回归测试（红/绿矩阵：vanilla 全红、本分支全绿；「压力下不垫」守护测试两侧皆绿） |
 | 6 | `feat(ccs): ship the selfbuild release script inside the fork` | 发布脚本入仓（`ccs-selfbuild.py`，仓库根）：零机器绝对路径，终验内联 |
 | 7 | `docs(ccs)` | 本使用说明（构建/接线/验证/回滚/新机迁移/上游同步） |
+| 8 | `fix(ccs): keep the TUI alive when an error payload breaks a component render` | 错误横幅崩溃修复：`getPreviewLines` 入口收敛非字符串载荷（Error 对象/undefined 不再抛 `text.split`）；TUI 渲染循环围堵组件异常（落文件日志、保留上一帧），输入区不再因渲染异常消失/原始栈砸屏 |
 
 ## 本机构建与发布
 
