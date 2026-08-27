@@ -221,6 +221,17 @@ export class Composer implements TerminalFrameProvider {
 			: [this.#header, this.#bootstrapInputGap, this.editor, this.#statusHost];
 		const transcriptIndex = roots.findIndex(root => root instanceof TranscriptContainer);
 		if (transcriptIndex < 0) {
+			// ccs-custom: bottom-pin the bootstrap frame too, so the editor sits on
+			// the terminal's last rows from the very first cold-start paint and does
+			// not jump when the runtime tree mounts.
+			const editorIndex = roots.indexOf(this.#editor);
+			if (editorIndex > 0) {
+				const pre = this.#renderRoots(roots.slice(0, editorIndex), width);
+				const post = this.#renderRoots(roots.slice(editorIndex), width);
+				const pad = Math.max(0, rows - pre.length - post.length);
+				const composed = [...pre, ...(pad > 0 ? Array<string>(pad).fill("") : []), ...post];
+				return { viewport: composed.length <= rows ? composed : composed.slice(-rows) };
+			}
 			return { viewport: this.#renderRoots(roots, width).slice(-rows) };
 		}
 		const transcript = roots[transcriptIndex] as TranscriptContainer;
@@ -237,7 +248,14 @@ export class Composer implements TerminalFrameProvider {
 		const now = performance.now();
 		const frame: AnimationFrame = { now, tick: Math.floor(now / 80) };
 		const active = transcript.renderViewport(width, Math.max(0, rows - before.length - after.length), frame);
-		const composed = [...before, ...active, ...after];
+		// ccs-custom: pin the input block to the terminal's bottom rows while the
+		// screen has room (Claude Code-style no-flicker layout) — blank rows fill
+		// the gap between the transcript viewport and the input chrome. The pad
+		// shrinks to exactly zero when history pressure begins, so retirement
+		// pacing, scroll anchoring, and resize reconciliation are unchanged.
+		const pinned = !this.#headerRetired && this.#offeredHistory === undefined;
+		const pad = pinned ? Math.max(0, rows - before.length - active.length - after.length) : 0;
+		const composed = [...before, ...active, ...(pad > 0 ? Array<string>(pad).fill("") : []), ...after];
 		if (history !== undefined && this.#offeredHistory?.source === "header") {
 			const visibleHeaderRows = Math.max(0, rows - composed.length);
 			this.#retiredHeaderStart = Math.max(0, history.rows.length - visibleHeaderRows);
@@ -275,7 +293,7 @@ export class Composer implements TerminalFrameProvider {
 		const rows = Math.max(0, viewport.rows);
 		const tail = this.#runtimeMounted
 			? this.#renderResizeTail(width, rows)
-			: this.#renderRoots([this.#bootstrapInputGap, this.editor, this.#statusHost], width);
+			: this.#renderBootstrapResizeTail(width, rows);
 		let header: readonly string[];
 		if (this.#headerRetired) {
 			this.#resizeRetiredHeaderStart ??= Math.max(
@@ -441,7 +459,22 @@ export class Composer implements TerminalFrameProvider {
 		const transcriptRows = transcript.renderTail(width, Math.max(0, rows - after.length));
 		const pre =
 			transcriptRows.length + after.length >= rows ? [] : this.#renderRoots(roots.slice(0, transcriptIndex), width);
-		return [...pre, ...transcriptRows, ...after];
+		// ccs-custom: keep the transient resize frame consistent with the pinned
+		// normal frame (same pre-retirement condition), so a resize does not flash
+		// the input block back up under the transcript.
+		const pad =
+			!this.#headerRetired && this.#offeredHistory === undefined
+				? Math.max(0, rows - pre.length - transcriptRows.length - after.length)
+				: 0;
+		return [...pre, ...transcriptRows, ...(pad > 0 ? Array<string>(pad).fill("") : []), ...after];
+	}
+
+	/** ccs-custom: bottom-pinned bootstrap tail for the transient resize buffer. */
+	#renderBootstrapResizeTail(width: number, rows: number): string[] {
+		const pre = this.#renderRoots([this.#bootstrapInputGap], width);
+		const post = this.#renderRoots([this.#editor, this.#statusHost], width);
+		const pad = Math.max(0, rows - pre.length - post.length);
+		return [...pre, ...(pad > 0 ? Array<string>(pad).fill("") : []), ...post];
 	}
 
 	/** Reflow accepted hard rows exactly as the restored terminal buffer will. */
