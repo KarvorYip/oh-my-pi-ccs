@@ -166,7 +166,7 @@ export class FooterComponent implements Component {
 		let totalPremiumRequests = 0;
 
 		for (const entry of this.session.sessionManager.getEntries()) {
-			if (entry.type === "message" && entry.message.role === "assistant") {
+			if (entry.type === "message" && entry.message.role === "assistant" && entry.message.usage) {
 				totalInput += entry.message.usage.input;
 				totalOutput += entry.message.usage.output;
 				totalCacheRead += entry.message.usage.cacheRead;

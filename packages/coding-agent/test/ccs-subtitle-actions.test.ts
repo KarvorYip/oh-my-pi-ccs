@@ -8,6 +8,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { Effort } from "@oh-my-pi/pi-catalog/effort";
 import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
 import { loadExtensions } from "@oh-my-pi/pi-coding-agent/extensibility/extensions/loader";
 import { ExtensionRunner } from "@oh-my-pi/pi-coding-agent/extensibility/extensions/runner";
@@ -61,9 +62,9 @@ describe("ccs-custom subtitle extension actions", () => {
 		// Session stub at the system boundary: only the three state readers the
 		// subtitle actions consult (and the runner handle) are exercised.
 		const session = {
-			thinkingLevel: "high",
+			thinkingLevel: Effort.High,
 			configuredThinkingLevel: () => "auto",
-			autoResolvedThinkingLevel: () => "med",
+			autoResolvedThinkingLevel: () => Effort.Medium,
 			getAdvisorStatusOverview: () => ({
 				configured: true,
 				advisors: [{ name: "adv-1", status: "running" }],
@@ -75,7 +76,7 @@ describe("ccs-custom subtitle extension actions", () => {
 		controller.initializeHookRunner({} as never, true);
 
 		const pi = capturedPi.__ccsCapturedPi!;
-		expect(pi.getThinkingState()).toEqual({ configured: "auto", effective: "high", resolved: "med" });
+		expect(pi.getThinkingState()).toEqual({ configured: "auto", effective: Effort.High, resolved: Effort.Medium });
 		expect(pi.getAdvisorOverview()).toEqual({
 			configured: true,
 			advisors: [{ name: "adv-1", status: "running" }],
