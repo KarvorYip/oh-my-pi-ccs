@@ -86,7 +86,7 @@ def prepare_branch(src: Path, version: str) -> None:
 	if branch != BRANCH:
 		git(src, "checkout", BRANCH)
 	log(f"fetch {UPSTREAM_REMOTE} --tags …")
-	git(src, "fetch", UPSTREAM_REMOTE, "--tags", "--prune")
+	git(src, "fetch", UPSTREAM_REMOTE, "--tags", "--prune", "--force")
 	tag = f"v{version}"
 	git(src, "rev-parse", "-q", "--verify", f"refs/tags/{tag}^{{commit}}")
 	log(f"rebase {BRANCH} @ {tag} …")
