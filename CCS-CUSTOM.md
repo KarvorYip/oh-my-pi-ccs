@@ -1,6 +1,6 @@
 # ccs-custom 分支使用说明
 
-本分支（`ccs-custom`）是 `can1357/oh-my-pi` 的私用定制线，基线上游 tag（当前 `v18.0.6`）。注入以 commits 形式维护，每次上游发版 `git rebase v<新版本>` 即可——不再依赖对 `dist/cli.js` 的文本锚点补丁。
+本分支（`ccs-custom`）是 `can1357/oh-my-pi` 的私用定制线，基线上游 tag（当前 `v18.0.9`）。注入以 commits 形式维护，每次上游发版 `git rebase v<新版本>` 即可——不再依赖对 `dist/cli.js` 的文本锚点补丁。
 
 ## 分支携带的改动
 
@@ -14,6 +14,8 @@
 | 6 | `feat(ccs): ship the selfbuild release script inside the fork` | 发布脚本入仓（`ccs-selfbuild.py`，仓库根）：零机器绝对路径，终验内联 |
 | 7 | `docs(ccs)` | 本使用说明（构建/接线/验证/回滚/新机迁移/上游同步） |
 | 8 | `fix(ccs): keep the TUI alive when an error payload breaks a component render` | 错误横幅崩溃修复：`getPreviewLines` 入口收敛非字符串载荷（Error 对象/undefined 不再抛 `text.split`）；TUI 渲染循环围堵组件异常（落文件日志、保留上一帧），输入区不再因渲染异常消失/原始栈砸屏 |
+| 9 | `fix(ccs): force-fetch upstream tags` | 上游曾重写 v18.0.7 tag，普通 `--tags` fetch 拒绝覆盖会中止整个同步 |
+| 10 | `fix(ccs): reject version-skewed natives from the bun-global fallback` | 兜底 natives 源版本校验：18.0.9 的码配 18.0.6 的 `.node` 构建期能过、运行期缺 `vcsGitDiscover` 每帧炸（status-line VCS 段） |
 
 ## 本机构建与发布
 
@@ -106,4 +108,4 @@ CCS 生态其余部分（bridge、provider plugin、omp-routing 扩展）不在�
 
 ## 上游同步
 
-上游发新 tag 后：直接启动一次 `omp-ccs`（自动触发 rebase+重建），或手动跑 `python ccs-selfbuild.py`。rebase 冲突时脚本失败退出且分支原样，人工解决后重跑。完整设计见 claude_settings 仓 `docs/adr/0005-omp-source-selfbuild-channel.md`。
+上游发新 tag 后：直接启动一次 `omp-ccs`（自动触发 rebase+重建），或手动跑 `python ccs-selfbuild.py`。启动链的重建条件为**语义化版本比较**（仅 native 更新才重建）——dist 允许领先 native（如 release 尚未发布而手动 `--target-version` 同步），不会被旧 native 拖回。rebase 冲突时脚本失败退出且分支原样，人工解决后重跑。natives 版本必须与构建目标精确一致（脚本强制校验）；`~/.omp/natives/<版本>/` 由对应版本 native omp 首次运行时自解压。完整设计见 claude_settings 仓 `docs/adr/0005-omp-source-selfbuild-channel.md`。
