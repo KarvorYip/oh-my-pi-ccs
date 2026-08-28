@@ -370,7 +370,8 @@ export class ChatTranscriptBuilder {
 			const invalidation = detectCacheInvalidation(this.#lastAssistantUsage, message.usage);
 			if (invalidation) assistantComponent.setCacheInvalidation(invalidation);
 		}
-		if (message.usage.cacheRead + message.usage.cacheWrite + message.usage.input > 0) {
+		// Turns that died on a provider error (e.g. 429) can carry no usage.
+		if (message.usage && message.usage.cacheRead + message.usage.cacheWrite + message.usage.input > 0) {
 			this.#lastAssistantUsage = message.usage;
 		}
 

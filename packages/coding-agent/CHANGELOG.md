@@ -61,7 +61,7 @@
 - Fixed ACP `read` tool-call locations so clients such as Zed Follow receive the resolved filesystem path rather than the OMP line-range selector.
 ### Fixed
 
-- Fixed raw Windows/MSYS shell failures remaining painted over the editor after a bash tool completed.
+- Fixed tool-turn error output painting over the editor/status area: a provider failure (e.g. a 429) that ends an assistant message without a usage payload no longer crashes the render loop, and the error renders in place instead.
 
 ## [18.0.9] - 2026-08-28
 

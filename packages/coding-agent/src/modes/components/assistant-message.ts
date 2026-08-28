@@ -891,7 +891,7 @@ export class AssistantMessageComponent extends Container {
 		// turn end leave the live count flat, so the rate stays 0 and the badge
 		// self-suppresses (see #thinkingDotsLabel).
 		const isThinkingNow = this.#lastUpdateTransient && this.#shouldAnimateThinking(message);
-		if (isThinkingNow) {
+		if (isThinkingNow && message.usage) {
 			const currentTokens = message.usage.reasoningTokens ?? message.usage.output;
 			this.#thinkingTokens = currentTokens;
 			const now = performance.now();
