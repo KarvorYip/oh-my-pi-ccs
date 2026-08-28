@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import shutil
 import subprocess
 import sys
@@ -115,6 +116,17 @@ def find_native_addons(version: str) -> list[Path]:
 	for source in sources:
 		if not source.is_dir():
 			continue
+		# 兜底源必须版本精确匹配：版本错配的 .node 缺新导出符号（如 18.0.9 的
+		# vcsGitDiscover），构建期能过、运行期才炸（status-line 每帧抛异常）。
+		# 版本化缓存目录名即版本，天然匹配；bun 全局包读 package.json 校验。
+		if source == BUN_NATIVES_DEFAULT:
+			try:
+				manifest = json.loads((source / "package.json").read_text(encoding="utf-8"))
+			except (OSError, ValueError):
+				manifest = {}
+			if str(manifest.get("version")) != version:
+				log(f"跳过兜底源（版本 {manifest.get('version')} ≠ {version}）：{source}")
+				continue
 		for name in ADDON_NAMES:
 			candidate = source / name
 			if candidate.is_file():
