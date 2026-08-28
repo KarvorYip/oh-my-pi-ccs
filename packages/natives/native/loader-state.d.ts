@@ -127,4 +127,12 @@ export function validateLoadedBindings(
 	candidate: string,
 ): void;
 
+export function withNativeRuntimeInstallLock(
+	FileLock: {
+		tryAcquire(path: string): { readonly acquired: boolean; release(): void };
+	},
+	install: () => void,
+	wait?: (timeoutMs: number) => void,
+): void;
+
 export function loadNative(): Record<string, unknown>;

@@ -283,4 +283,22 @@ describe("EventController + Cursor todo bridge", () => {
 		expect(f.ctx.pendingTools.size).toBe(0);
 		expect(f.ctx.setTodos).toHaveBeenCalledWith(phases);
 	});
+
+	it("forces a viewport repaint after bash completes", async () => {
+		const f = createFixture();
+		await f.controller.handleEvent(streamedToolBlock("bash-call-1", "bash", { command: "true" }));
+
+		await f.controller.handleEvent({
+			type: "tool_execution_end",
+			toolCallId: "bash-call-1",
+			toolName: "bash",
+			isError: false,
+			result: { content: [{ type: "text", text: "done" }] },
+		} as Extract<AgentSessionEvent, { type: "tool_execution_end" }>);
+
+		// Windows/MSYS can bypass captured stderr and paint a `dofork` failure at
+		// the hardware cursor. A normal diff sees an unchanged frame; a forced
+		// repaint rewrites the viewport after the shell process settles.
+		expect(f.ctx.ui.requestRender).toHaveBeenLastCalledWith(true);
+	});
 });

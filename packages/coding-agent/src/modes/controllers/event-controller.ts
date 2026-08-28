@@ -1856,6 +1856,10 @@ export class EventController {
 					});
 			}
 		}
+		// MSYS can report fork/resource failures directly to the controlling
+		// terminal, bypassing the captured stderr pipe and differential frame.
+		// Repaint once the shell settles so stray bytes cannot remain in the editor.
+		if (event.toolName === "bash") this.ctx.ui.requestRender(true);
 	}
 	async #handleAgentEnd(event: Extract<AgentSessionEvent, { type: "agent_end" }>): Promise<void> {
 		// A superseded agent_end: the agent is already streaming a fresh turn, so
