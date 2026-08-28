@@ -3,6 +3,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { FileLock } from "../native/index.js";
+import { withNativeRuntimeInstallLock } from "../native/loader-state.js";
 
 test("FileLock binds release to one native owner", async () => {
 	const root = await fs.mkdtemp(path.join(os.tmpdir(), "pi-native-lock-"));
@@ -35,4 +36,30 @@ test("FileLock binds release to one native owner", async () => {
 	} finally {
 		await fs.rm(root, { recursive: true, force: true });
 	}
+});
+
+test("native runtime installation waits for the cross-process owner", () => {
+	const events: string[] = [];
+	let attempts = 0;
+	const bindings = {
+		FileLock: {
+			tryAcquire() {
+				attempts += 1;
+				const acquired = attempts === 2;
+				return {
+					acquired,
+					release() {
+						events.push(acquired ? "release:owner" : "release:blocked");
+					},
+				};
+			},
+		},
+		__ompInstallTokioRuntime() {
+			events.push("install");
+		},
+	};
+
+	withNativeRuntimeInstallLock(bindings.FileLock, bindings.__ompInstallTokioRuntime, () => events.push("wait"));
+
+	expect(events).toEqual(["release:blocked", "wait", "install", "release:owner"]);
 });

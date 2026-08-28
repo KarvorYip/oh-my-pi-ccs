@@ -16,6 +16,81 @@ function vcsError(code, message) {
 	return error;
 }
 
+const windowsGitRepositories = new WeakMap();
+
+async function gitStatusPorcelain(root, options = {}, signal) {
+	const untracked = options.untracked ?? "normal";
+	if (untracked !== "no" && untracked !== "normal" && untracked !== "all") {
+		throw vcsError("Backend", `unsupported untracked mode: ${untracked}`);
+	}
+	const argv = ["git", "-C", root, "status", "--porcelain=v1", `--untracked-files=${untracked}`];
+	if (options.nulTerminated) argv.push("-z");
+	if (options.pathspecs?.length) argv.push("--", ...options.pathspecs);
+	let proc;
+	try {
+		proc = Bun.spawn(argv, {
+			stdin: "ignore",
+			stdout: "pipe",
+			stderr: "pipe",
+			windowsHide: true,
+			...(signal instanceof AbortSignal ? { signal } : {}),
+		});
+	} catch (error) {
+		throw vcsError("Backend", `git status failed to start: ${error instanceof Error ? error.message : String(error)}`);
+	}
+	const [stdout, stderr, exitCode] = await Promise.all([
+		new Response(proc.stdout).text(),
+		new Response(proc.stderr).text(),
+		proc.exited,
+	]);
+	if (exitCode !== 0) {
+		throw vcsError("Backend", stderr.trim() || `git status exited with code ${exitCode}`);
+	}
+	return stdout;
+}
+
+function wrapWindowsGitRepository(repository, root) {
+	if (!repository || process.platform !== "win32") return repository;
+	const cached = windowsGitRepositories.get(repository);
+	if (cached) return cached;
+	const boundMethods = new Map();
+	const proxy = new Proxy(repository, {
+		get(target, property) {
+			if (property === "statusPorcelain") {
+				return (options, signal) => gitStatusPorcelain(root, options, signal);
+			}
+			if (property === "statusSummary") {
+				return async signal => {
+					const text = await gitStatusPorcelain(root, { untracked: "normal" }, signal);
+					const summary = { staged: 0, unstaged: 0, untracked: 0 };
+					for (const line of text.split(/\r?\n/u)) {
+						if (line.length < 2) continue;
+						if (line.startsWith("??")) summary.untracked += 1;
+						else {
+							if (line[0] !== " ") summary.staged += 1;
+							if (line[1] !== " ") summary.unstaged += 1;
+						}
+					}
+					return summary;
+				};
+			}
+			if (property === "isDirty") {
+				return async signal => (await gitStatusPorcelain(root, { untracked: "normal" }, signal)).length > 0;
+			}
+			const value = Reflect.get(target, property, target);
+			if (typeof value !== "function") return value;
+			let bound = boundMethods.get(property);
+			if (!bound) {
+				bound = value.bind(target);
+				boundMethods.set(property, bound);
+			}
+			return bound;
+		},
+	});
+	windowsGitRepositories.set(repository, proxy);
+	return proxy;
+}
+
 /**
  * True when `error` is a native VCS failure. The native layer constructs these
  * on the JS thread as real `Error` objects with `name: "VcsError"`, a
@@ -34,11 +109,13 @@ export function isEmptyCherryPick(error) {
 
 /** Discover the git repository containing `dir`; `null` outside any checkout. */
 export function git(dir) {
-	return api().vcsGitDiscover(dir);
+	const discovered = api().vcsGitDiscover(dir);
+	return wrapWindowsGitRepository(discovered, discovered?.info().repoRoot);
 }
 /** Discover the repository owning `dir`; `null` outside any repository. */
 export function repo(dir) {
-	return api().vcsDiscover(dir);
+	const discovered = api().vcsDiscover(dir);
+	return discovered?.kind() === "git" ? wrapWindowsGitRepository(discovered, discovered.root()) : discovered;
 }
 
 /** Like {@link repo}, asserting any requested backend capabilities. */

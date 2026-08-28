@@ -247,6 +247,7 @@ export class Screen {
 	/** Sink for terminal→child bytes (query replies); wired to the session PTY. */
 	onReply: ((bytes: Uint8Array) => void) | null = null;
 	#term: KittyTerminal;
+	#disposed = false;
 	/** Completed image transmissions by image id (insertion order backs eviction). */
 	#images = new Map<number, StoredImage>();
 	/** In-flight chunked transmission; continuation commands carry no id. */
@@ -327,16 +328,20 @@ export class Screen {
 	}
 
 	feed(chunk: Uint8Array) {
+		if (this.#disposed) return;
 		this.#term.write(chunk);
 	}
 
 	/** Resize with kitty's real semantics: content rewraps and refills from scrollback. */
 	resize(cols: number, rows: number) {
+		if (this.#disposed) return;
 		this.#term.resize(cols, rows);
 	}
 
 	/** Frees the native terminal. */
 	dispose() {
+		if (this.#disposed) return;
+		this.#disposed = true;
 		this.#term.dispose();
 	}
 
