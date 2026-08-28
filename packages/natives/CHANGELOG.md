@@ -14,6 +14,11 @@
 
 - Added native process replacement support for the CLI’s `/restart` command.
 - Added `VcsGitRepo.mergeBase(a, b)` to find the best common ancestor of two Git revisions, returning `null` when the histories are unrelated.
+### Fixed
+
+- Fixed simultaneous Windows OMP launches over-admitting native worker capacity and aborting with `OS can't spawn worker thread` / error 1455.
+- Fixed Windows Git status polling repeatedly panicking when gitoxide could not spawn worker threads under system commit pressure.
+
 
 ## [18.0.9] - 2026-08-28
 

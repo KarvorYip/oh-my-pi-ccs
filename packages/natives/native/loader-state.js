@@ -726,22 +726,54 @@ export function validateLoadedBindings(ctx, bindings, candidate) {
 	);
 }
 
+const NATIVE_RUNTIME_INSTALL_LOCK_PATH = "omp://native-runtime-install";
+const NATIVE_RUNTIME_INSTALL_RETRY_MS = 25;
+const NATIVE_RUNTIME_INSTALL_WAIT_BUFFER = new Int32Array(new SharedArrayBuffer(4));
+
+/**
+ * Hold the process-owned native lock across runtime construction. Windows
+ * Tokio probes available thread capacity before spawning its workers; without
+ * this lock, simultaneous omp launches can all pass the probe and then consume
+ * the same remaining commit budget, aborting in Tokio's worker launch.
+ */
+export function withNativeRuntimeInstallLock(
+	FileLock,
+	install,
+	wait = timeoutMs => Atomics.wait(NATIVE_RUNTIME_INSTALL_WAIT_BUFFER, 0, 0, timeoutMs),
+) {
+	let lock = FileLock.tryAcquire(NATIVE_RUNTIME_INSTALL_LOCK_PATH);
+	while (!lock.acquired) {
+		lock.release();
+		wait(NATIVE_RUNTIME_INSTALL_RETRY_MS);
+		lock = FileLock.tryAcquire(NATIVE_RUNTIME_INSTALL_LOCK_PATH);
+	}
+	try {
+		install();
+	} finally {
+		lock.release();
+	}
+}
+
 /**
  * Install the addon's bounded Tokio runtime now that `dlopen` has returned and
  * the dynamic-loader lock is released. The Rust `#[module_init]` deliberately
  * does NOT build the runtime — spawning worker threads under the loader lock
  * deadlocks on some hosts — so it exposes `__ompInstallTokioRuntime` for the
- * loader to call once, before any async native runs. Best-effort: older addons
- * predating this export simply fall back to napi-rs's default runtime.
+ * loader to call once, before any async native runs. Best-effort for older
+ * addons; current Windows addons serialize the thread probe and worker spawn
+ * across omp processes so concurrent launches cannot over-admit capacity.
  */
 function installNativeTokioRuntime(bindings) {
 	const install = bindings.__ompInstallTokioRuntime;
 	if (typeof install !== "function") return;
+	const serialize = process.platform === "win32" && typeof bindings.FileLock?.tryAcquire === "function";
 	try {
-		install();
+		if (serialize) withNativeRuntimeInstallLock(bindings.FileLock, install);
+		else install();
 		startupMarker("native:tokioRuntime:installed");
 	} catch (err) {
 		startupMarker(`native:tokioRuntime:failed:${err instanceof Error ? err.message : String(err)}`);
+		if (serialize) throw err;
 	}
 }
 
