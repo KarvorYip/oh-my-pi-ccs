@@ -491,7 +491,9 @@ export class UiHelpers {
 						const invalidation = detectCacheInvalidation(this.ctx.lastAssistantUsage, usage);
 						if (invalidation) assistantComponent.setCacheInvalidation(invalidation);
 					}
-					if (usage.cacheRead + usage.cacheWrite + usage.input > 0) {
+					// Turns that died on a provider error (e.g. 429) can carry no
+					// usage payload; skip the cache-miss bookkeeping for them.
+					if (usage && usage.cacheRead + usage.cacheWrite + usage.input > 0) {
 						this.ctx.lastAssistantUsage = usage;
 					}
 				}

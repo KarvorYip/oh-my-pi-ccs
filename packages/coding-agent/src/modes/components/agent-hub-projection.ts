@@ -88,10 +88,12 @@ function readSessionMetrics(session: NonNullable<AgentRef["session"]>): AgentMet
 		let cost = 0;
 		for (const message of messages) {
 			if (message.role !== "assistant") continue;
+			const usage = message.usage;
+			if (!usage) continue;
 			requests++;
-			tokens += message.usage.input + message.usage.output + message.usage.cacheWrite;
+			tokens += usage.input + usage.output + usage.cacheWrite;
 			tools += message.content.filter(content => content.type === "toolCall").length;
-			cost += message.usage.cost.total;
+			cost += usage.cost.total;
 		}
 		return {
 			tokens,

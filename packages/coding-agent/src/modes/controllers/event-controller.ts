@@ -1422,8 +1422,10 @@ export class EventController {
 			}
 			// Surface a prompt-cache invalidation: if the previous turn cached a
 			// meaningful prefix and this request read none of it back, flag the turn.
+			// A provider failure can end a turn with stopReason=error and no
+			// usage payload (e.g. a 429 that never reached the API); guard it.
 			const usage = event.message.usage;
-			if (usage.cacheRead + usage.cacheWrite + usage.input > 0) {
+			if (usage && usage.cacheRead + usage.cacheWrite + usage.input > 0) {
 				if (settings.get("display.cacheMissMarker")) {
 					const invalidation = detectCacheInvalidation(this.ctx.lastAssistantUsage, usage);
 					if (invalidation) this.ctx.streamingComponent.setCacheInvalidation(invalidation);
