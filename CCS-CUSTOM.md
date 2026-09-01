@@ -16,6 +16,7 @@
 | 8 | `fix(ccs): keep the TUI alive when an error payload breaks a component render` | 错误横幅崩溃修复：`getPreviewLines` 入口收敛非字符串载荷（Error 对象/undefined 不再抛 `text.split`）；TUI 渲染循环围堵组件异常（落文件日志、保留上一帧），输入区不再因渲染异常消失/原始栈砸屏 |
 | 9 | `fix(ccs): force-fetch upstream tags` | 上游曾重写 v18.0.7 tag，普通 `--tags` fetch 拒绝覆盖会中止整个同步 |
 | 10 | `fix(ccs): reject version-skewed natives from the bun-global fallback` | 兜底 natives 源版本校验：18.0.9 的码配 18.0.6 的 `.node` 构建期能过、运行期缺 `vcsGitDiscover` 每帧炸（status-line VCS 段） |
+| 11 | `feat(ccs): ship omp-claude-mem as an in-repo plugin with cache-safe injection` | claude-mem 兼容扩展从 `~/.local/bin` 迁入 `plugins/omp-claude-mem/`；记忆时间线改为**每会话一次渲染并冻结**（跨进程 resume 复用同一字节，注入位置固定为第一条 user 消息头部），修复 codex 线路前缀缓存被逐轮追加的易变上下文击穿的问题 |
 
 ## 本机构建与发布
 
@@ -73,6 +74,9 @@ bun dist\cli.js --version   # 应输出 omp/<版本>
 cd packages\natives && bun test test/ccs-loader-candidates.test.ts
 cd ..\coding-agent && bun test test/ccs-composer-pin.test.ts test/ccs-welcome-labels.test.ts test/ccs-subtitle-actions.test.ts
 
+# claude-mem 插件契约测试（注入字节稳定 / 冻结跨进程复用 / worker 降级）
+cd ..\.. && bun test plugins/omp-claude-mem/test/omp-claude-mem.test.ts
+
 # 冒烟（经 omp-ccs 启动链）
 & ~\.local\bin\omp-ccs.ps1 --version        # omp/<版本>
 
@@ -81,6 +85,30 @@ python ccs-selfbuild.py --skip-push
 ```
 
 交互目视：欢迎页显示 CCS 短标签（如 `gpt-5.6-terra`）；输入框贴终端底行不随内容跳动；副栏显示 `⟳ auto`/等级/advisor 徽标。
+
+## claude-mem 兼容插件（随分支分发）
+
+记忆接入（原 `~/.local/bin/omp-claude-mem.ts`）已迁入仓库 `plugins/omp-claude-mem/`，通过标准插件机制加载：
+
+```powershell
+omp plugin link <本仓库克隆目录>\plugins\omp-claude-mem
+omp plugin list        # 应出现 omp-claude-mem@0.1.0
+/memory-status         # 交互内检查 worker 连接
+```
+
+行为契约（与旧版的关键差异）：
+
+- **每会话一次渲染并冻结**：记忆时间线按 `(项目, 会话)` 渲染一次，字节固化到
+  `~/.claude-mem/omp-frozen-context.json`；同一会话内（含跨进程 `-c` 续会话）
+  的所有请求注入**完全相同的字节**，不再每轮向消息流末尾追加新渲染的上下文。
+- **注入位置固定**：作为第一条 user 消息的首个 text 块——请求间前缀字节稳定，
+  OpenAI 兼容中继（如百田 codex 线路）的严格前缀缓存不再被击穿。
+- 新鲜度：`memory_recall` 工具按需检索；时间线随新会话 / 缓存 TTL（默认 6h，
+  `CLAUDE_MEM_CONTEXT_FRESH_MS` 可调）过期后重新渲染。
+- worker 不可用时静默降级（不注入、不阻塞请求）；`/api/sessions/init`、
+  observations、summarize 等协议交互与旧版一致。
+
+回退：`omp plugin uninstall omp-claude-mem` 后恢复旧文件即可。
 
 ## 回滚
 
@@ -101,7 +129,8 @@ bun 通道恢复 `welcome-apply` 自动补丁链（18.0.6 补丁完好）。要�
 1. `git clone -b ccs-custom <fork> && cd oh-my-pi-*`（或任意 clone 后 `git checkout ccs-custom`；确认 `origin`=fork、`upstream`=`can1357/oh-my-pi`）；
 2. 安装官方 omp（独立二进制落到 `~\.local\bin\omp.exe`）并跑一次（生成 `~\.omp\natives\<版本>\`）；
 3. `python ccs-selfbuild.py`（自动 fetch/rebase/install/bundle/验证）；
-4. 配置 `~\.local\bin\omp-ccs-paths.json`（上面模板）与 `omp-self.cmd`（`bun "<克隆目录>\packages\coding-agent\dist\cli.js" %*`）。
+4. 配置 `~\.local\bin\omp-ccs-paths.json`（上面模板）与 `omp-self.cmd`（`bun "<克隆目录>\packages\coding-agent\dist\cli.js" %*`）；
+5. `omp plugin link "<克隆目录>\plugins\omp-claude-mem"`（claude-mem 记忆接入插件随分支分发，见上文）。
 
 CCS 生态其余部分（bridge、provider plugin、omp-routing 扩展）不在本仓库，迁移见 `claude_settings` 仓的 `OMP_CCS_UPDATE_REPAIR_HANDOFF.md`。
 
