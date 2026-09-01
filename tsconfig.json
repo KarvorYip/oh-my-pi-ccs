@@ -5,6 +5,9 @@
 		},
 		{
 			"path": "./tsconfig.tools.json"
+		},
+		{
+			"path": "./tsconfig.plugins.json"
 		}
 	]
 }
