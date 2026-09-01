@@ -9,6 +9,7 @@ import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config
 import { COMPOSER_DEFAULTS, Composer } from "@oh-my-pi/pi-coding-agent/modes/composer";
 import { InteractiveMode } from "@oh-my-pi/pi-coding-agent/modes/interactive-mode";
 import { initTheme } from "@oh-my-pi/pi-coding-agent/modes/theme/theme";
+import * as vcs from "@oh-my-pi/pi-natives/vcs";
 import { VirtualTerminal } from "../../tui/test/virtual-terminal";
 import { createTestSession } from "./utilities";
 
@@ -51,6 +52,8 @@ describe("ccs-custom welcome labels", () => {
 				composer,
 			);
 			vi.spyOn(mode.statusLine, "watchBranch").mockImplementation(() => {});
+			vi.spyOn(vcs, "git").mockReturnValue(null);
+			vi.spyOn(vcs, "repo").mockReturnValue(null);
 
 			await mode.init({ suppressWelcomeIntro: true });
 
