@@ -77,6 +77,7 @@ cd ..\coding-agent && bun test test/ccs-composer-pin.test.ts test/ccs-welcome-la
 
 # claude-mem 插件契约测试（注入字节稳定 / 冻结跨进程复用 / worker 降级）
 cd ..\.. && bun test plugins/omp-claude-mem/test/omp-claude-mem.test.ts
+
 # 冒烟（经 omp-ccs 启动链）
 & ~\.local\bin\omp-ccs.ps1 --version        # omp/<版本>
 
@@ -109,6 +110,7 @@ omp plugin list        # 应出现 omp-claude-mem@0.1.0
   observations、summarize 等协议交互与旧版一致。
 
 回退：`omp plugin uninstall omp-claude-mem` 后恢复旧文件即可。
+
 ## 回滚
 
 `omp-ccs-paths.json` 改回三键即切回 bun 通道（npm 停发前可用）：
