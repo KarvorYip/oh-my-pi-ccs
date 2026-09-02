@@ -22,6 +22,7 @@ import {
 	clampsContextOverride,
 	resolveMaxContextWindow,
 } from "@oh-my-pi/pi-catalog/compat/context-window";
+import { CODEX_GPT_5_6_CONTEXT_WINDOWS } from "@oh-my-pi/pi-catalog/discovery/codex";
 import { applyCatalogMetrics, CatalogMetricsIndex } from "@oh-my-pi/pi-catalog/identity/metrics";
 import { readModelCache, writeModelCache } from "@oh-my-pi/pi-catalog/model-cache";
 import {
@@ -2159,6 +2160,17 @@ export class ModelRegistry {
 	#applyHardcodedModelPolicies(models: Model<Api>[]): Model<Api>[] {
 		const extendedContext = isExtendedContextEnabledFromSettings(this.#settings);
 		return models.map(model => {
+			// Subscription Codex per-SKU windows (luna 128K, terra 272K, sol 1M):
+			// the bundled catalog floors the whole family at 1M, which overstates
+			// luna and terra on the relayed account and delays compaction past the
+			// server cap. Pinned before the long-context cap so sol's 1M window
+			// still clamps to the 272K standard-pricing tier unless
+			// `extendedContext` is enabled.
+			const pinnedWindow =
+				model.provider === "openai-codex" ? CODEX_GPT_5_6_CONTEXT_WINDOWS[model.id.replace(/-wm$/, "")] : undefined;
+			if (pinnedWindow !== undefined && model.contextWindow !== pinnedWindow) {
+				model = applyModelOverride(model, { contextWindow: pinnedWindow });
+			}
 			if (extendedContext) {
 				const maximum = resolveMaxContextWindow(model);
 				if (maximum !== undefined && model.contextWindow !== null && maximum > model.contextWindow) {

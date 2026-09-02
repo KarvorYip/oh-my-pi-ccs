@@ -571,6 +571,7 @@
 - Fixed Enter being ignored during the first turn when omp starts with an initial prompt.
 - Fixed idle compaction discarding context while the session was still waiting on a backgrounded async job ([#10223](https://github.com/can1357/oh-my-pi/pull/10223) by [@mattwilkinsonn](https://github.com/mattwilkinsonn)).
 - Fixed LSP idle timeout clobbering in multi-workspace sessions and unmanaged timer spawning on pure config reads ([#10237](https://github.com/can1357/oh-my-pi/pull/10237) by [@harshaygadekar](https://github.com/harshaygadekar)).
+- Fixed the model registry showing 1M context windows for Codex GPT-5.6 luna/terra when the relayed account caps them at 128K/272K; bundled and discovered rows now pin to each SKU's real window so compaction thresholds match the server-enforced limit.
 
 ## [18.0.11] - 2026-08-29
 
