@@ -185,8 +185,7 @@ describe("generated model policies", () => {
 		expect(models[4]?.cost.longContext).toBeUndefined();
 	});
 
-	it("floors GPT-5.6 Codex-transport context windows at 1M (openai/codex#38917)", () => {
-		const models = [
+ @theirs
 			// Codex discovery/registry still reports the stale 272000 for these.
 			createSpec({
 				id: "gpt-5.6-luna",
@@ -218,9 +217,9 @@ describe("generated model policies", () => {
 			}),
 		].map(model => buildGenerated(model));
 
-		expect(models[0]?.contextWindow).toBe(1_000_000);
+		expect(models[0]?.contextWindow).toBe(128000);
 		expect(models[1]?.contextWindow).toBe(1_000_000);
-		expect(models[2]?.contextWindow).toBe(1_000_000);
+		expect(models[2]?.contextWindow).toBe(272000);
 		expect(models[3]?.contextWindow).toBe(1050000);
 		expect(models[4]?.contextWindow).toBe(272000);
 	});

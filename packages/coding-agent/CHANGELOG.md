@@ -92,6 +92,7 @@
 - Prevented browser `app.path` from terminating existing same-executable applications when no reusable CDP endpoint is available.
 - Fixed top-level errors overwriting the active composer before terminal restoration.
 - Fixed Enter being ignored during the first turn when omp starts with an initial prompt.
+- Fixed the model registry showing 1M context windows for Codex GPT-5.6 luna/terra when the relayed account caps them at 128K/272K; bundled and discovered rows now pin to each SKU's real window so compaction thresholds match the server-enforced limit.
 
 ## [18.0.11] - 2026-08-29
 

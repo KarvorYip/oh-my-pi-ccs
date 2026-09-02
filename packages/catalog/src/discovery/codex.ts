@@ -16,13 +16,18 @@ const DEFAULT_MAX_TOKENS = 128_000;
  */
 const GPT_5_6_CONTEXT_WINDOW = 372_000;
 /**
- * OpenAI enabled a 1M-token window for subscription Codex on GPT-5.6
- * luna/sol/terra (2026-08-16), but the Codex model registry still reports the
- * stale 272000 — so the reported value must be floored, not just defaulted
- * (openai/codex#38917; Codex CLI override `model_context_window = 1000000`).
+ * Subscription Codex enforces per-SKU windows that neither the registry (stale
+ * 272000 for sol, openai/codex#38917) nor the API docs (family-wide 1.05M)
+ * describe: measured against the relayed account, luna caps at 128K, terra at
+ * 272K, and sol reaches 1M with >272K input billed at the premium long-context
+ * tier. Pin each SKU's real window; registry reports for these slugs are wrong
+ * in both directions.
  */
-const GPT_5_6_1M_CONTEXT_WINDOW = 1_000_000;
-const CODEX_GPT_5_6_1M_SLUGS: ReadonlySet<string> = new Set(["gpt-5.6-luna", "gpt-5.6-sol", "gpt-5.6-terra"]);
+export const CODEX_GPT_5_6_CONTEXT_WINDOWS: Readonly<Record<string, number>> = {
+	"gpt-5.6-luna": 128_000,
+	"gpt-5.6-sol": 1_000_000,
+	"gpt-5.6-terra": 272_000,
+};
 /**
  * Codex advertises worker-mode SKUs under a `-wm` suffix (`gpt-5.6-luna-wm`).
  *
@@ -33,8 +38,7 @@ const CODEX_GPT_5_6_1M_SLUGS: ReadonlySet<string> = new Set(["gpt-5.6-luna", "gp
  * ChatGPT account rejects. The compatibility rule, scoped to Codex discovery:
  * a `-wm` slug whose plain counterpart exists in the bundled Codex catalog is
  * ALSO registered under its plain id. Both listings derive their base-model
- * metadata (1M-window floor, daybreak pricing, context fallback) from the
- * canonical plain slug — the suffix is a routing variant, not a different
+ * metadata (pinned window, daybreak pricing, context fallback) from the
  * model, so the `-wm` row no longer keeps stale backend-parsed capability
  * values while its plain listing is enriched.
  *
@@ -331,9 +335,9 @@ function buildNormalizedCodexModel(
 	baseUrl: string,
 ): NormalizedCodexModel {
 	// Codex discovery historically omitted `context_window` for GPT-5.6-family
-	// SKUs (#5705); luna/sol/terra additionally floor the reported value because
-	// the registry still declares the pre-1M 272000 window. Keyed on the
-	// canonical slug so a safe `gpt-5.6-luna-wm` row gets the same floor as its
+	// SKUs (#5705); luna/sol/terra additionally pin the reported value because
+	// the registry misreports their windows in both directions. Keyed on the
+	// canonical slug so a safe `gpt-5.6-luna-wm` row gets the same pin as its
 	// plain listing.
 	const identity = classifyModel("openai-codex", canonicalSlug, { lenient: true });
 	const revision = identity.revision === undefined ? undefined : parseRevision(identity.revision);
@@ -346,9 +350,7 @@ function buildNormalizedCodexModel(
 			? GPT_5_6_CONTEXT_WINDOW
 			: DEFAULT_CONTEXT_WINDOW;
 	const reportedContextWindow = parsed.contextWindow ?? fallbackContextWindow;
-	const contextWindow = CODEX_GPT_5_6_1M_SLUGS.has(canonicalSlug)
-		? Math.max(reportedContextWindow, GPT_5_6_1M_CONTEXT_WINDOW)
-		: reportedContextWindow;
+	const contextWindow = CODEX_GPT_5_6_CONTEXT_WINDOWS[canonicalSlug] ?? reportedContextWindow;
 	const maxTokens = Math.min(DEFAULT_MAX_TOKENS, contextWindow);
 	return {
 		priority: parsed.priority,

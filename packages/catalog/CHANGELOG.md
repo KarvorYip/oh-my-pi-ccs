@@ -47,6 +47,9 @@
 ### Removed
 
 - Removed legacy DeepSeek V3 variants from the Novita catalog.
+### Fixed
+
+- Fixed GPT-5.6 luna/terra on the Codex transport reporting an inflated 1M context window; each SKU now pins to its real subscription cap (luna 128K, terra 272K, sol 1M) so auto-compaction fires before the server rejects an oversized request.
 
 ## [18.0.11] - 2026-08-29
 

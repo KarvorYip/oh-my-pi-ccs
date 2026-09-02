@@ -999,6 +999,19 @@ describe("ModelRegistry", () => {
 			expect(sharedBuiltin.find("openai", "gpt-5.4")?.contextWindow).toBe(1_000_000);
 		});
 
+		test("built-in openai-codex GPT-5.6 SKUs pin to per-SKU subscription windows", async () => {
+			await Settings.init({ inMemory: true });
+			settings.set("extendedContext", false);
+			const registry = new ModelRegistry(authStorage, modelsJsonPath);
+			// Bundled catalog floors the family at 1M; the runtime pin restores
+			// the relayed account's real caps.
+			expect(registry.find("openai-codex", "gpt-5.6-luna")?.contextWindow).toBe(128_000);
+			expect(registry.find("openai-codex", "gpt-5.6-terra")?.contextWindow).toBe(272_000);
+			// Sol pins at 1M, then the long-context cap clamps it to the 272K
+			// standard-pricing tier while `extendedContext` is off.
+			expect(registry.find("openai-codex", "gpt-5.6-sol")?.contextWindow).toBe(272_000);
+		});
+
 		test("custom gpt-5.4 replacement keeps the hardcoded context window when contextWindow is omitted", () => {
 			const model = openaiGpt54Replace.find("openai", "gpt-5.4");
 			expect(model?.contextWindow).toBe(1_000_000);
@@ -1687,12 +1700,13 @@ describe("ModelRegistry", () => {
 
 			settings.set("extendedContext", false);
 			await registry.reapplyModelPolicies();
-			expect(registry.find("openai", "gpt-5.6-terra")?.contextWindow).toBe(272_000);
+			expect(registry.find("openai-codex", "gpt-5.6-sol")?.contextWindow).toBe(272_000);
 
 			settings.set("extendedContext", true);
 			await registry.reapplyModelPolicies();
 			expect(registry.find("openai", "gpt-5.6-terra")?.contextWindow).toBe(1_050_000);
-			expect(registry.find("openai-codex", "gpt-5.6-terra")?.contextWindow).toBe(1_000_000);
+			expect(registry.find("openai-codex", "gpt-5.6-terra")?.contextWindow).toBe(272_000);
+			expect(registry.find("openai-codex", "gpt-5.6-sol")?.contextWindow).toBe(1_000_000);
 		});
 	});
 	describe("bundled Anthropic catalog availability", () => {

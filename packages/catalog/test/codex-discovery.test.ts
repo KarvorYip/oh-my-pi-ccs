@@ -104,15 +104,31 @@ describe("Codex model discovery", () => {
 		expect(legacy?.useResponsesLite).toBeUndefined();
 	});
 
-	it("floors GPT-5.6 luna/sol/terra at the 1M window when upstream omits context_window (#5705)", async () => {
+	it("pins GPT-5.6 per-SKU windows when upstream omits context_window (#5705)", async () => {
 		const fetchFn: typeof fetch = Object.assign(
 			async () =>
 				new Response(
 					JSON.stringify({
 						models: [
 							{
+								slug: "gpt-5.6-luna",
+								display_name: "GPT-5.6-Luna",
+								default_reasoning_level: "medium",
+								supported_reasoning_levels: ["low", "medium", "high"],
+								input_modalities: ["text", "image"],
+								supported_in_api: true,
+							},
+							{
 								slug: "gpt-5.6-sol",
 								display_name: "GPT-5.6-Sol",
+								default_reasoning_level: "medium",
+								supported_reasoning_levels: ["low", "medium", "high"],
+								input_modalities: ["text", "image"],
+								supported_in_api: true,
+							},
+							{
+								slug: "gpt-5.6-terra",
+								display_name: "GPT-5.6-Terra",
 								default_reasoning_level: "medium",
 								supported_reasoning_levels: ["low", "medium", "high"],
 								input_modalities: ["text", "image"],
@@ -138,8 +154,12 @@ describe("Codex model discovery", () => {
 			fetchFn,
 		});
 
+		const luna = result?.models.find(model => model.id === "gpt-5.6-luna");
+		expect(luna?.contextWindow).toBe(128_000);
 		const sol = result?.models.find(model => model.id === "gpt-5.6-sol");
 		expect(sol?.contextWindow).toBe(1_000_000);
+		const terra = result?.models.find(model => model.id === "gpt-5.6-terra");
+		expect(terra?.contextWindow).toBe(272_000);
 		const legacy = result?.models.find(model => model.id === "gpt-5.5");
 		expect(legacy?.contextWindow).toBe(272_000);
 	});
@@ -198,12 +218,21 @@ describe("Codex model discovery", () => {
 		expect(buildModel(red).cost).toEqual({ input: 12.5, output: 75, cacheRead: 1.25, cacheWrite: 15.625 });
 	});
 
-	it("floors stale reported windows for GPT-5.6 luna/sol/terra and honors reports above the floor", async () => {
+	it("pins per-SKU windows over stale and inflated registry reports", async () => {
 		const fetchFn: typeof fetch = Object.assign(
 			async () =>
 				new Response(
 					JSON.stringify({
 						models: [
+							{
+								slug: "gpt-5.6-luna",
+								display_name: "GPT-5.6-Luna",
+								context_window: 272_000,
+								default_reasoning_level: "medium",
+								supported_reasoning_levels: ["low", "medium", "high"],
+								input_modalities: ["text", "image"],
+								supported_in_api: true,
+							},
 							{
 								slug: "gpt-5.6-sol",
 								display_name: "GPT-5.6-Sol",
@@ -243,13 +272,15 @@ describe("Codex model discovery", () => {
 			fetchFn,
 		});
 
-		// Registry still reports the pre-1M 272000 for sol; the floor must win.
+		// The registry reports the stale 272000 for luna/sol; the pins win.
+		const luna = result?.models.find(model => model.id === "gpt-5.6-luna");
+		expect(luna?.contextWindow).toBe(128_000);
 		const sol = result?.models.find(model => model.id === "gpt-5.6-sol");
 		expect(sol?.contextWindow).toBe(1_000_000);
-		// Reports above the floor are honored as-is.
+		// Inflated registry reports are pinned back down to the SKU's real cap.
 		const terra = result?.models.find(model => model.id === "gpt-5.6-terra");
-		expect(terra?.contextWindow).toBe(1_050_000);
-		// Non-floored SKUs keep the actively reported value.
+		expect(terra?.contextWindow).toBe(272_000);
+		// Non-pinned SKUs keep the actively reported value.
 		const legacy = result?.models.find(model => model.id === "gpt-5.5");
 		expect(legacy?.contextWindow).toBe(272_000);
 	});
@@ -577,9 +608,9 @@ describe("Codex model discovery", () => {
 		expect(plainModel).toBeDefined();
 		expect(plainModel?.provider).toBe("openai-codex");
 		// Both rows are the same model: the worker variant shares the plain
-		// SKU's base metadata, so the 1M window floor applies to both.
-		expect(workerModel?.contextWindow).toBe(1_000_000);
-		expect(plainModel?.contextWindow).toBe(1_000_000);
+		// SKU's base metadata, so the pinned window applies to both.
+		expect(workerModel?.contextWindow).toBe(128_000);
+		expect(plainModel?.contextWindow).toBe(128_000);
 	});
 
 	it("keeps the plain route through authoritative discovery that advertises only the `-wm` slug", async () => {

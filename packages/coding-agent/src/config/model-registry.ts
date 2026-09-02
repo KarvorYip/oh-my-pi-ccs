@@ -16,7 +16,7 @@ import type {
 } from "@oh-my-pi/pi-ai/types";
 import type { AssistantMessageEventStream } from "@oh-my-pi/pi-ai/utils/event-stream";
 import { buildModel } from "@oh-my-pi/pi-catalog/build";
-import { collapseBuiltVariants } from "@oh-my-pi/pi-catalog/compat/collapse";
+ @both
 import { readModelCache, writeModelCache } from "@oh-my-pi/pi-catalog/model-cache";
 import {
 	createModelManager,
@@ -2105,6 +2105,17 @@ export class ModelRegistry {
 	#applyHardcodedModelPolicies(models: Model<Api>[]): Model<Api>[] {
 		const extendedContext = isExtendedContextEnabledFromSettings(this.#settings);
 		return models.map(model => {
+			// Subscription Codex per-SKU windows (luna 128K, terra 272K, sol 1M):
+			// the bundled catalog floors the whole family at 1M, which overstates
+			// luna and terra on the relayed account and delays compaction past the
+			// server cap. Pinned before the long-context cap so sol's 1M window
+			// still clamps to the 272K standard-pricing tier unless
+			// `extendedContext` is enabled.
+			const pinnedWindow =
+				model.provider === "openai-codex" ? CODEX_GPT_5_6_CONTEXT_WINDOWS[model.id.replace(/-wm$/, "")] : undefined;
+			if (pinnedWindow !== undefined && model.contextWindow !== pinnedWindow) {
+				model = applyModelOverride(model, { contextWindow: pinnedWindow });
+			}
 			// Extended context off: cap models with a premium long-context price
 			// tier (e.g. GPT-5.6 bills 2x input above 272K) at the standard-pricing
 			// threshold so compaction fires before a request crosses into the tier.
