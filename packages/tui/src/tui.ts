@@ -766,7 +766,16 @@ export class TUI extends Container {
 	static readonly #RESIZE_VIEWPORT_SETTLE_MS = 120;
 	/** Longest wait for a CPR reply before the settled repaint falls back. */
 	static readonly #RESIZE_PROBE_TIMEOUT_MS = 200;
+	/**
+	 * Quiet window before the next keystroke upgrades its repaint to a forced
+	 * frame. Console-routed writes (MSYS fork/resource diagnostics bypass the
+	 * stdio pipes and land directly on the physical terminal) corrupt whatever
+	 * row the hardware cursor sits on; a differential frame cannot see those
+	 * bytes, so the first touch after a quiet period repaints everything.
+	 */
+	static readonly #STRAY_CONSOLE_WRITE_HEAL_MS = 5_000;
 	#inputRenderGraceUntilMs = 0;
+	#lastInputHealRepaintAtMs = 0;
 	// A scale-`s` OSC 66 heading reserves `s - 1` rows, and the protocol
 	// caps `s` at 7. This bounds spacer lookups and supplies enough context
 	// above the resize viewport to classify every legal heading exactly.
@@ -1099,6 +1108,10 @@ export class TUI extends Container {
 		}
 		this.#inputDeferred = options?.deferInput === true;
 		this.#watchdog.start();
+		// The stray-write heal window counts from startup, not the epoch: the
+		// first keystroke after boot must not fire a forced frame (see
+		// #STRAY_CONSOLE_WRITE_HEAL_MS).
+		this.#lastInputHealRepaintAtMs = this.#renderScheduler.now();
 		this.#ghosttyInitialImageDelayDone = false;
 		this.#ghosttyImageReadyAtMs = this.#renderScheduler.now() + TUI.#GHOSTTY_INITIAL_IMAGE_DELAY_MS;
 		// A confirmed DECRPM report for mode 2026 is authoritative: enable
@@ -1967,6 +1980,17 @@ export class TUI extends Container {
 				return;
 			}
 			focused.handleInput(data);
+			// First touch after a quiet window upgrades this repaint to a forced
+			// frame so console-routed stray writes (see
+			// #STRAY_CONSOLE_WRITE_HEAL_MS) heal on the next keystroke instead of
+			// lingering until some tool boundary fires a forced render. The flag
+			// rides the ordinary scheduler — cadence, adaptive backpressure, and
+			// the Ctrl+C/Escape interrupt grace keep their priority.
+			const now = this.#renderScheduler.now();
+			if (now - this.#lastInputHealRepaintAtMs >= TUI.#STRAY_CONSOLE_WRITE_HEAL_MS) {
+				this.#lastInputHealRepaintAtMs = now;
+				this.#forceViewportRepaintOnNextRender = true;
+			}
 			this.requestRender();
 		}
 	}

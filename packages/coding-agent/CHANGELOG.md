@@ -5,6 +5,7 @@
 ### Fixed
 
 - Claude marketplace MCP servers now resolve environment placeholders in stdio environment values instead of passing strings such as `${NAME:-}` literally ([#10481](https://github.com/can1357/oh-my-pi/pull/10481) by [@mrexodia](https://github.com/mrexodia)).
+- Background MSYS process failures no longer leave stray bytes in the composer: every terminal settle now forces a repaint, clearing console-routed fork/resource diagnostics that bypass the captured output pipes.
 ## [18.1.2] - 2026-09-01
 
 ### Added

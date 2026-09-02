@@ -1896,6 +1896,12 @@ export class EventController {
 		}
 		setTerminalTitleState("idle");
 
+		// Background MSYS processes (subagent git calls, vcs polling children) can
+		// report fork/resource failures directly to the controlling terminal at any
+		// moment, not only inside a bash tool call — same console-routed write as
+		// the bash tool_end repaint above, healed here at every terminal settle.
+		this.ctx.ui.requestRender(true);
+
 		await this.#finishAgentEnd(event);
 	}
 

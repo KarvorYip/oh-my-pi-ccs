@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Console-routed stray writes (MSYS fork/resource diagnostics that bypass the stdio pipes and land on the physical terminal) now self-heal on the first keystroke after a quiet window instead of lingering in the composer until a tool boundary forces a repaint.
+
 ## [18.1.0] - 2026-09-01
 
 ### Fixed
