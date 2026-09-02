@@ -66,6 +66,9 @@
 ### Fixed
 
 - Fixed the TUI tearing in Herdr panes so the live viewport updates as one frame instead of leaving the top frozen while only the bottom refreshed. Pane identity vars (`HERDR_PANE_ID` / `HERDR_TAB_ID` / `HERDR_WORKSPACE_ID`) also count as inside Herdr, not only `HERDR_ENV=1`. A DECRPM “unrecognized” report keeps synchronized output on; a “permanently reset” report, or a custom terminal that omits the DECRPM status, still turns it off.
+### Fixed
+
+- Console-routed stray writes (MSYS fork/resource diagnostics that bypass the stdio pipes and land on the physical terminal) now self-heal on the first keystroke after a quiet window instead of lingering in the composer until a tool boundary forces a repaint.
 
 ## [18.1.0] - 2026-09-01
 
