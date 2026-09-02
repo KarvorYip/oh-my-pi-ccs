@@ -848,7 +848,16 @@ export class ModelRegistry {
 		resolvedDefaults = this.#mergeResolvedModels(resolvedDefaults, select(this.#runtimeDiscoveredModels));
 		const withConfigModels = this.#mergeCustomModels(resolvedDefaults, select(this.#customModelOverlays));
 		const combined = this.#mergeCustomModels(withConfigModels, select(this.#runtimeModelOverlays));
-		const withModelOverrides = this.#applyModelOverrides(collapseBuiltVariants(combined), this.#modelOverrides);
+		// Relay custom models (ccswitch-*) resolve the bundled first-party
+		// reference window when their manifest omits one; re-pin after the merge
+		// (idempotent) and re-apply the long-context standard-pricing clamp so
+		// the relayed sol window matches the bundled path's semantics. Other
+		// hardcoded policies stay bundled-only: re-running them here would
+		// override explicit custom-model limits (e.g. a gpt-5.4 replacement's
+		// own contextWindow).
+		const relayExtendedContext = isExtendedContextEnabledFromSettings(this.#settings);
+		const relayPinned = combined.map(model => this.#applyCodexGpt56RelayPolicies(model, relayExtendedContext));
+		const withModelOverrides = this.#applyModelOverrides(collapseBuiltVariants(relayPinned), this.#modelOverrides);
 		const withProviderGuardrails = this.#applyProviderGuardrailOverrides(withModelOverrides);
 		return this.#applyLlamaCppModelFixups(this.#applyRuntimeProviderOverrides(withProviderGuardrails));
 	}
@@ -2106,14 +2115,7 @@ export class ModelRegistry {
 	#applyHardcodedModelPolicies(models: Model<Api>[]): Model<Api>[] {
 		const extendedContext = isExtendedContextEnabledFromSettings(this.#settings);
 		return models.map(model => {
-			// Subscription Codex per-SKU windows (luna 128K, terra 272K, sol 1M):
-			// the bundled catalog floors the whole family at 1M, which overstates
-			// luna and terra on the relayed account and delays compaction past the
-			// server cap. Pinned before the long-context cap so sol's 1M window
-			// still clamps to the 272K standard-pricing tier unless
-			// `extendedContext` is enabled.
-			const pinnedWindow =
-				model.provider === "openai-codex" ? CODEX_GPT_5_6_CONTEXT_WINDOWS[model.id.replace(/-wm$/, "")] : undefined;
+			const pinnedWindow = this.#codexGpt56PinnedWindow(model);
 			if (pinnedWindow !== undefined && model.contextWindow !== pinnedWindow) {
 				model = applyModelOverride(model, { contextWindow: pinnedWindow });
 			}
@@ -2126,10 +2128,7 @@ export class ModelRegistry {
 			// `contextWindow` overrides reapply later in composition and win over
 			// this cap.
 			if (!extendedContext && model.provider !== "xai-oauth") {
-				const threshold = model.cost.longContext?.inputThreshold;
-				if (threshold !== undefined && model.contextWindow !== null && model.contextWindow > threshold) {
-					model = applyModelOverride(model, { contextWindow: threshold });
-				}
+				model = this.#applyLongContextClamp(model);
 			}
 			if (model.provider === "ollama-cloud" && model.omitMaxOutputTokens !== true) {
 				model = applyModelOverride(model, { omitMaxOutputTokens: true });
@@ -2146,6 +2145,38 @@ export class ModelRegistry {
 				...overrides,
 			});
 		});
+	}
+
+	#applyLongContextClamp(model: Model<Api>): Model<Api> {
+		const threshold = model.cost.longContext?.inputThreshold;
+		if (threshold !== undefined && model.contextWindow !== null && model.contextWindow > threshold) {
+			return applyModelOverride(model, { contextWindow: threshold });
+		}
+		return model;
+	}
+
+	#applyCodexGpt56RelayPolicies(model: Model<Api>, extendedContext: boolean): Model<Api> {
+		const pinnedWindow = this.#codexGpt56PinnedWindow(model);
+		if (pinnedWindow !== undefined && model.contextWindow !== pinnedWindow) {
+			model = applyModelOverride(model, { contextWindow: pinnedWindow });
+		}
+		if (!extendedContext && model.provider !== "xai-oauth") {
+			model = this.#applyLongContextClamp(model);
+		}
+		return model;
+	}
+
+	/**
+	 * Subscription Codex per-SKU windows (luna 128K, terra 272K, sol 1M): the
+	 * bundled catalog floors the whole family at 1M, which overstates luna and
+	 * terra on the relayed account and delays compaction past the server cap.
+	 * Covers `openai-codex` and the CCS bridge's `ccswitch-*` relay providers
+	 * (their custom models resolve the first-party 1.05M reference window when
+	 * the bridge manifest omits `contextWindow`).
+	 */
+	#codexGpt56PinnedWindow(model: Model<Api>): number | undefined {
+		if (model.provider !== "openai-codex" && !model.provider.startsWith("ccswitch-")) return undefined;
+		return CODEX_GPT_5_6_CONTEXT_WINDOWS[model.id.replace(/-wm$/, "")];
 	}
 
 	#parseModels(config: ModelsConfig): CustomModelOverlay[] {

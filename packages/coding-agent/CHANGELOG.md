@@ -5,7 +5,7 @@
 ### Fixed
 
 - Claude marketplace MCP servers now resolve environment placeholders in stdio environment values instead of passing strings such as `${NAME:-}` literally ([#10481](https://github.com/can1357/oh-my-pi/pull/10481) by [@mrexodia](https://github.com/mrexodia)).
-- Background MSYS process failures no longer leave stray bytes in the composer: every terminal settle now forces a repaint, clearing console-routed fork/resource diagnostics that bypass the captured output pipes.
+- CCS relay providers (`ccswitch-*`) carrying GPT-5.6 models now pin to the same per-SKU subscription windows as `openai-codex`; relay manifests that omit `contextWindow` no longer resolve the inflated first-party 1.05M reference.
 ## [18.1.2] - 2026-09-01
 
 ### Added

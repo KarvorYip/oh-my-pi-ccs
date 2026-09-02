@@ -1012,6 +1012,26 @@ describe("ModelRegistry", () => {
 			expect(registry.find("openai-codex", "gpt-5.6-sol")?.contextWindow).toBe(272_000);
 		});
 
+		test("ccswitch relay GPT-5.6 models pin to per-SKU subscription windows", async () => {
+			await Settings.init({ inMemory: true });
+			settings.set("extendedContext", false);
+			const registry = readonlyRegistry({
+				providers: {
+					"ccswitch-codex-test": {
+						baseUrl: "http://relay.example.com/v1",
+						apiKey: "TEST_KEY",
+						api: "openai-responses",
+						// The CCS bridge manifest omits contextWindow: the custom
+						// model resolves the bundled first-party 1.05M reference.
+						models: [{ id: "gpt-5.6-luna" }, { id: "gpt-5.6-sol" }, { id: "gpt-5.6-terra" }],
+					},
+				},
+			});
+			expect(registry.find("ccswitch-codex-test", "gpt-5.6-luna")?.contextWindow).toBe(128_000);
+			expect(registry.find("ccswitch-codex-test", "gpt-5.6-terra")?.contextWindow).toBe(272_000);
+			expect(registry.find("ccswitch-codex-test", "gpt-5.6-sol")?.contextWindow).toBe(272_000);
+		});
+
 		test("custom gpt-5.4 replacement keeps the hardcoded context window when contextWindow is omitted", () => {
 			const model = openaiGpt54Replace.find("openai", "gpt-5.4");
 			expect(model?.contextWindow).toBe(1_000_000);
