@@ -16,7 +16,8 @@ import type {
 } from "@oh-my-pi/pi-ai/types";
 import type { AssistantMessageEventStream } from "@oh-my-pi/pi-ai/utils/event-stream";
 import { buildModel } from "@oh-my-pi/pi-catalog/build";
- @both
+import { collapseBuiltVariants } from "@oh-my-pi/pi-catalog/compat/collapse";
+import { CODEX_GPT_5_6_CONTEXT_WINDOWS } from "@oh-my-pi/pi-catalog/discovery/codex";
 import { readModelCache, writeModelCache } from "@oh-my-pi/pi-catalog/model-cache";
 import {
 	createModelManager,

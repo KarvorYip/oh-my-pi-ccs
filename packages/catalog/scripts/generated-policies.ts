@@ -3,8 +3,11 @@
  * field baking, and promotion-target linking. Runs only from
  * `generate-models.ts` — none of this ships in the runtime bundle.
  */
-1: @ours
-import { CODEX_GPT_5_6_CONTEXT_WINDOWS } from "../src/discovery/codex";
+import { modelLimitsFor, pricingPeerFor } from "../src/compat/behavior";
+import { isCollapsedVariantSpec } from "../src/compat/collapse";
+import { resolveModelPolicy } from "../src/compat/resolve";
+import { compareRevision, parseRevision } from "../src/compat/revision";
+import { classifyModel } from "../src/compat/taxonomy";
 import { resolveCursorInput } from "../src/discovery/cursor";
 import { bareModelId, getLongestModelLikeIdSegment } from "../src/identity/id";
 import { buildModelReferenceIndex, resolveModelReference } from "../src/identity/reference";
@@ -78,7 +81,6 @@ export function applyAntigravityPricingFallback(models: readonly ModelSpec[]): M
 	});
 }
 
- @ours
 /**
  * Apply upstream metadata corrections to a mutable array of models, then
  * re-bake canonical thinking metadata so generated catalogs always carry the
@@ -271,17 +273,5 @@ function applyGeneratedModelPolicy(model: ModelSpec<Api>): void {
 
 	if (model.provider === "ollama-cloud") {
 		model.omitMaxOutputTokens = true;
-	}
-
-	// GPT-5.6 luna/sol/terra on the Codex transport: subscription Codex
-	// enforces per-SKU windows (luna 128K, terra 272K, sol 1M with >272K
-	// premium billing) that the registry misreports in both directions, so pin
-	// each SKU's real window. Daybreak aliases are excluded — the registry
-	// actively reports their true window.
-	if (model.api === "openai-codex-responses") {
-		const pinnedWindow = CODEX_GPT_5_6_CONTEXT_WINDOWS[model.id];
-		if (pinnedWindow !== undefined) {
-			model.contextWindow = pinnedWindow;
-		}
 	}
 }

@@ -185,7 +185,8 @@ describe("generated model policies", () => {
 		expect(models[4]?.cost.longContext).toBeUndefined();
 	});
 
- @theirs
+	it("pins GPT-5.6 Codex-transport context windows to per-SKU subscription caps", () => {
+		const models: ModelSpec<Api>[] = [
 			// Codex discovery/registry still reports the stale 272000 for these.
 			createSpec({
 				id: "gpt-5.6-luna",

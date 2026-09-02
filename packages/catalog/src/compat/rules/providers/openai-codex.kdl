@@ -113,9 +113,22 @@ provider "openai-codex" {
 			cache-write 5.0
 		}
 	}
-	// OpenAI enabled a 1M window for subscription Codex GPT-5.6 (2026-08-16);
-	// the Codex model registry still reports the stale 272000 figure.
-	models "gpt-5.6-luna" "gpt-5.6-sol" "gpt-5.6-terra" {
+	// Subscription Codex enforces per-SKU windows that the registry
+	// misreports in both directions (openai/codex#38917): luna caps at 128K,
+	// terra at 272K, and sol reaches 1M with >272K input billed at the
+	// premium long-context tier above. Pin each SKU's real window; only sol
+	// keeps a floor so a higher truthful registry report still wins.
+	models "gpt-5.6-luna*" {
+		limits-patch {
+			context-window 128000
+		}
+	}
+	models "gpt-5.6-terra*" {
+		limits-patch {
+			context-window 272000
+		}
+	}
+	models "gpt-5.6-sol*" {
 		context-window-floor 1000000
 	}
 }
