@@ -12807,16 +12807,42 @@
 				],
 				"models": [
 					{
-						"kind": "exact",
-						"value": "gpt-5.6-luna"
-					},
+						"kind": "glob",
+						"value": "gpt-5.6-luna*"
+					}
+				],
+				"catalog": {
+					"limitsPatch": {
+						"contextWindow": 128000
+					}
+				}
+			},
+			{
+				"source": "providers/openai-codex.kdl:149",
+				"providers": [
+					"openai-codex"
+				],
+				"models": [
 					{
-						"kind": "exact",
-						"value": "gpt-5.6-sol"
-					},
+						"kind": "glob",
+						"value": "gpt-5.6-terra*"
+					}
+				],
+				"catalog": {
+					"limitsPatch": {
+						"contextWindow": 272000
+					}
+				}
+			},
+			{
+				"source": "providers/openai-codex.kdl:154",
+				"providers": [
+					"openai-codex"
+				],
+				"models": [
 					{
-						"kind": "exact",
-						"value": "gpt-5.6-terra"
+						"kind": "glob",
+						"value": "gpt-5.6-sol*"
 					}
 				],
 				"catalog": {

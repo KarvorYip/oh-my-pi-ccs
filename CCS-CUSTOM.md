@@ -1,6 +1,6 @@
 # ccs-custom 分支使用说明
 
-本分支（`ccs-custom`）是 `can1357/oh-my-pi` 的私用定制线，基线上游 tag（当前 `v18.0.11`）。注入以 commits 形式维护，每次上游发版 `git rebase v<新版本>` 即可——不再依赖对 `dist/cli.js` 的文本锚点补丁。
+本分支（`ccs-custom`）是 `can1357/oh-my-pi` 的私用定制线，基线上游 tag（当前 `v18.1.2`）。注入以 commits 形式维护，每次上游发版 `git rebase v<新版本>` 即可——不再依赖对 `dist/cli.js` 的文本锚点补丁。
 
 ## 分支携带的改动
 
@@ -17,6 +17,7 @@
 | 9 | `fix(ccs): force-fetch upstream tags` | 上游曾重写 v18.0.7 tag，普通 `--tags` fetch 拒绝覆盖会中止整个同步 |
 | 10 | `fix(ccs): reject version-skewed natives from the bun-global fallback` | 兜底 natives 源版本校验：18.0.9 的码配 18.0.6 的 `.node` 构建期能过、运行期缺 `vcsGitDiscover` 每帧炸（status-line VCS 段） |
 | 11 | `feat(ccs): ship omp-claude-mem as an in-repo plugin with cache-safe injection` | claude-mem 兼容扩展从 `~/.local/bin` 迁入 `plugins/omp-claude-mem/`；记忆时间线改为**每会话一次渲染并冻结**（跨进程 resume 复用同一字节，注入位置固定为第一条 user 消息头部），修复 codex 线路前缀缓存被逐轮追加的易变上下文击穿的问题 |
+| 12 | `fix(catalog): 按 SKU 钉死 GPT-5.6 Codex 上下文窗口` | 订阅版 Codex 各 SKU 真实窗口（luna 128K / terra 272K / sol 1M，>272K 加价层）取代 upstream 全家族 1M floor：`CODEX_GPT_5_6_CONTEXT_WINDOWS` 单一常量落在 discovery、生成期策略与 model-registry 运行时策略（`-wm` 后缀归一，先钉死后走 `extendedContext` 272K 钳制）三层；`models.json` 仅同步三个条目（全量 regen 有约 1 万行无关漂移且当前丢 sol 行） |
 
 ## 本机构建与发布
 
