@@ -483,6 +483,7 @@
 - Fixed stale `omp-plugins.lock.json` entries loading leftover `node_modules` trees for plugins no longer declared in an existing `package.json` — the orphaned copy double-loaded its extensions. Lockfile-only plugins remain supported for manifest-less roots and symlinked packages (`omp plugin link`, marketplace runtime packages); stale entries are skipped with a warning.
 
 - Background MSYS process failures no longer leave stray bytes in the composer: every terminal settle now forces a repaint, clearing console-routed fork/resource diagnostics that bypass the captured output pipes.
+- CCS relay providers (`ccswitch-*`) carrying GPT-5.6 models now pin to the same per-SKU subscription windows as `openai-codex`; relay manifests that omit `contextWindow` no longer resolve the inflated first-party 1.05M reference.
 ## [18.1.2] - 2026-09-01
 
 ### Added
