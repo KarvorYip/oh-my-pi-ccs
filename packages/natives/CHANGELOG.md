@@ -61,6 +61,9 @@
 ### Fixed
 
 - Fixed `grep` and `sed` treating basic regular expressions as extended ones, which silently matched every line for patterns like `^+` or `s/^\+/` and swapped the meanings of `+` and `\+` ([#10298](https://github.com/can1357/oh-my-pi/pull/10298) by [@mruangutai](https://github.com/mruangutai)).
+### Fixed
+
+- Fixed Windows Git status polling briefly creating `index.lock` and contending with user Git operations.
 
 ## [18.1.0] - 2026-09-01
 

@@ -23,7 +23,7 @@ async function gitStatusPorcelain(root, options = {}, signal) {
 	if (untracked !== "no" && untracked !== "normal" && untracked !== "all") {
 		throw vcsError("Backend", `unsupported untracked mode: ${untracked}`);
 	}
-	const argv = ["git", "-C", root, "status", "--porcelain=v1", `--untracked-files=${untracked}`];
+	const argv = ["git", "--no-optional-locks", "-C", root, "status", "--porcelain=v1", `--untracked-files=${untracked}`];
 	if (options.nulTerminated) argv.push("-z");
 	if (options.pathspecs?.length) argv.push("--", ...options.pathspecs);
 	let proc;
