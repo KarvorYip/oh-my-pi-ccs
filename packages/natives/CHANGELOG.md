@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed Windows Git status polling briefly creating `index.lock` and contending with user Git operations.
+
 ## [18.1.0] - 2026-09-01
 
 ### Fixed
