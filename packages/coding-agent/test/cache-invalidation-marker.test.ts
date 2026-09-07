@@ -26,6 +26,11 @@ describe("detectCacheInvalidation", () => {
 		expect(detectCacheInvalidation(undefined, usage({ cacheWrite: 50_000, input: 2 }))).toBeUndefined();
 	});
 
+	it("does not inspect a provider-error turn without usage", () => {
+		const prev = usage({ cacheRead: 50_000, cacheWrite: 1_000 });
+		expect(detectCacheInvalidation(prev, undefined)).toBeUndefined();
+	});
+
 	it("flags a cacheRead collapse after a warm turn and reports reprocessed tokens", () => {
 		// Mirrors the observed session: warm turn reads ~50k, next request reads
 		// nothing and re-creates the whole prefix.

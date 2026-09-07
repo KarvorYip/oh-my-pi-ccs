@@ -46,8 +46,11 @@ export interface CacheInvalidation {
  * zero intermittently as routine propagation noise that self-heals the next
  * turn, so flagging it would be a false positive.
  */
-export function detectCacheInvalidation(prev: Usage | undefined, current: Usage): CacheInvalidation | undefined {
-	if (!prev) return undefined;
+export function detectCacheInvalidation(
+	prev: Usage | undefined,
+	current: Usage | undefined,
+): CacheInvalidation | undefined {
+	if (!prev || !current) return undefined;
 	// Only flag a warm→cold transition: the previous turn must have actually read
 	// a meaningful prefix from cache. A write-only predecessor (first request, or
 	// a re-write after expiry) has not proven the cache is live, so a cold turn

@@ -53,12 +53,12 @@ export function sanitizeErrorLine(
  * glyph). Shared by the inline transcript error and the pinned banner.
  */
 export function formatErrorBlock(
-	message: string,
+	message: unknown,
 	contentWidth: number,
 	maxRows: number,
 	styleLine: (line: string, index: number) => string,
 ): string {
-	const lines = replaceTabs(message)
+	const lines = replaceTabs(message == null ? "" : String(message))
 		.split("\n")
 		.map(line => line.trim())
 		.filter(line => line.length > 0);
