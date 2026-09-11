@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -70,7 +71,21 @@ def detect_target_version(native_omp: Path, override: str | None) -> str:
 	version = output[0].strip() if output else ""
 	if not version.startswith("omp/"):
 		raise SelfbuildError(f"native omp 版本输出异常：{version!r}")
-	return version.removeprefix("omp/")
+	version = version.removeprefix("omp/")
+	# native omp 滞后于已构建版本时（官方 launcher 未随 dist 更新），其版本在
+	# natives 缓存无对应 .node，按该版本构建必然失败。回退到缓存里语义化版本
+	# 最高的可用版本：那是本通道实际构建过的水位。
+	if not (NATIVES_CACHE_DEFAULT / version).is_dir():
+		available = [
+			entry.name
+			for entry in NATIVES_CACHE_DEFAULT.iterdir()
+			if entry.is_dir() and re.fullmatch(r"\d+\.\d+\.\d+", entry.name)
+		]
+		if available:
+			best = max(available, key=lambda name: tuple(int(part) for part in name.split(".")))
+			log(f"natives 缓存缺 {version}（native omp 滞后），改用缓存最高版本 {best}")
+			return best
+	return version
 
 
 def git(src: Path, *args: str) -> subprocess.CompletedProcess[str]:
@@ -89,7 +104,18 @@ def prepare_branch(src: Path, version: str) -> None:
 	log(f"fetch {UPSTREAM_REMOTE} --tags …")
 	git(src, "fetch", UPSTREAM_REMOTE, "--tags", "--prune", "--force")
 	tag = f"v{version}"
-	git(src, "rev-parse", "-q", "--verify", f"refs/tags/{tag}^{{commit}}")
+	tag_commit = git(src, "rev-parse", "-q", "--verify", f"refs/tags/{tag}^{{commit}}").stdout.strip()
+	if not tag_commit:
+		raise SelfbuildError(f"upstream 不存在 tag {tag}；先确认版本号。")
+	# tag 已在分支历史中时 rebase 属纯形式（历史含 merge 提交时更会把两侧
+	# 重新线性化并重放冲突），直接跳过。
+	ancestor = subprocess.run(
+		["git", "-C", str(src), "merge-base", "--is-ancestor", tag_commit, "HEAD"],
+		capture_output=True,
+	)
+	if ancestor.returncode == 0:
+		log(f"{tag} 已在 {BRANCH} 历史中，跳过 rebase。")
+		return
 	log(f"rebase {BRANCH} @ {tag} …")
 	rebase = subprocess.run(
 		["git", "-C", str(src), "rebase", tag],
