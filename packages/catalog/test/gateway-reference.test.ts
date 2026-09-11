@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { buildModel } from "../src/build";
 import { getBundledModelReferenceIndex } from "../src/identity/bundled";
 import { inheritReferenceThinking, resolveModelReference } from "../src/identity/reference";
+import { Effort } from "../src/effort";
 import type { ModelSpec } from "../src/types";
 
 describe("Portkey gateway model references", () => {
@@ -27,7 +28,20 @@ describe("Portkey gateway model references", () => {
 		const kiloGigaPotato = resolveModelReference("giga-potato", index);
 		expect(kiloGigaPotato?.provider).toBe("kilo");
 		expect(kiloGigaPotato?.thinking?.effortRouting).toBeDefined();
-		expect(inheritReferenceThinking(undefined, kiloGigaPotato, "gateway")).toBeUndefined();
+		// A foreign dialect (anthropic relay) still cannot graft kilo's routing.
+		expect(inheritReferenceThinking(undefined, kiloGigaPotato, "gateway", "anthropic-messages")).toBeUndefined();
+	});
+
+	test("relays speaking the reference API inherit the bundled thinking ladder", () => {
+		const index = getBundledModelReferenceIndex();
+		const reference = resolveModelReference("claude-opus-5[1M]", index);
+		expect(reference?.provider).toBe("anthropic");
+		expect(reference?.thinking?.efforts).toContain(Effort.Max);
+		// A ccswitch-style anthropic-messages relay keeps the ladder instead of
+		// falling back to the generic no-max tier.
+		expect(
+			inheritReferenceThinking(undefined, reference, "ccswitch-claude-1", "anthropic-messages")?.efforts,
+		).toContain(Effort.Max);
 	});
 });
 

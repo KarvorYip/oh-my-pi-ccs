@@ -895,7 +895,7 @@ export async function discoverOpenAIModelsList(
 				provider: providerConfig.provider,
 				baseUrl,
 				reasoning: reference?.reasoning ?? false,
-				thinking: inheritReferenceThinking(undefined, reference, providerConfig.provider),
+				thinking: inheritReferenceThinking(undefined, reference, providerConfig.provider, api),
 				input: nativeMetadataForModel?.input ??
 					extractOpenAIModelsListInputCapabilities(item) ??
 					reference?.input ?? ["text"],
@@ -1056,7 +1056,7 @@ export async function discoverProxyModels(
 				provider: providerConfig.provider,
 				baseUrl,
 				reasoning: reference?.reasoning ?? false,
-				thinking: inheritReferenceThinking(undefined, reference, providerConfig.provider),
+				thinking: inheritReferenceThinking(undefined, reference, providerConfig.provider, api),
 				input: reference?.input ?? ["text"],
 				// Proxy pricing is provider-specific and usually does not match
 				// upstream bundled catalogs, so keep costs local-unknown even when

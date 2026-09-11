@@ -226,6 +226,9 @@
 ### Fixed
 
 - Fixed GPT-6 Astra requiring `/extended-context` for its full context window: it now keeps the documented 1.05M-token window with the setting on or off, and explicit per-model `contextWindow` overrides still win.
+### Fixed
+
+- Fixed custom relay providers (ccswitch-style Anthropic/OpenAI proxies) losing the bundled thinking effort ladder — including `max` — for models like `claude-opus-5[1M]`/`claude-sonnet-5[1M]`, falling back to a generic tier. Reference inheritance now keys on wire dialect (API match) instead of provider identity.
 
 ## [18.1.12] - 2026-09-06
 

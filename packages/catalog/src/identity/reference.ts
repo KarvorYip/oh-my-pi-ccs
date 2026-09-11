@@ -170,18 +170,23 @@ export function getReferenceCandidateIds(modelId: string): string[] {
 }
 
 /**
- * Inherit bundled reference thinking only for same-provider matches. Wire routing
- * (`effortRouting`) is provider-specific; cross-provider inheritance can rewrite
- * gateway ids (e.g. Portkey `@modal/GLM-5-2-FP8` → devin `glm-5-2`).
+ * Inherit bundled reference thinking when the wire dialect matches. Thinking
+ * `mode`/`effortMap` are encoded per API shape, not per host: a relay speaking
+ * the reference's exact API (custom ccswitch-style proxies of first-party
+ * endpoints, thin OpenAI-compatible discovery) inherits the ladder safely.
+ * Cross-API inheritance could graft foreign routing onto a host that speaks a
+ * different dialect (e.g. a devin-shaped ladder onto an openai-completions
+ * proxy), so a same-provider reference or an API mismatch stays gated.
  */
 export function inheritReferenceThinking(
 	modelThinking: ThinkingConfig | undefined,
-	reference: Pick<Model<Api>, "provider" | "thinking"> | undefined,
+	reference: Pick<Model<Api>, "api" | "provider" | "thinking"> | undefined,
 	provider: string,
+	api: Api | undefined,
 ): ThinkingConfig | undefined {
 	if (modelThinking !== undefined) return modelThinking;
 	if (!reference?.thinking) return undefined;
-	if (reference.provider !== provider) return undefined;
+	if (reference.provider !== provider && reference.api !== api) return undefined;
 	return reference.thinking;
 }
 

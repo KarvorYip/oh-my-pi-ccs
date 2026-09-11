@@ -105,9 +105,14 @@ class "glm" {
 	// residue: taxonomy ranks cannot separate these ids from the vision (`…v`)
 	// and flashx/preview shapes that keep host dialects; the explicit priority resolves
 	// the intentional overlap with census host-dialect residues such as
-	// baseten's `zai-org/GLM-5*`.
+	// baseten's `zai-org/GLM-5*`. The `…[*` globs catch context-variant ids
+	// that bracket the window in the id itself (ccswitch `glm-5.3[1M]`); `[`
+	// never appears in a version token, so the anchor stays as tight as the
+	// bare and `:`-suffixed selectors.
 	models "*glm-5.3" "*glm-5.3-air" "*glm-5.3-turbo" "*glm-5.3-flash" "*glm-5.3:*" \
-		"*glm-5.3-flash-uncensored" "*glm-5.3-free" "*glm-5.3-highspeed" "*glm-5.3-flash-lab" priority=10 {
+		"*glm-5.3-flash-uncensored" "*glm-5.3-free" "*glm-5.3-highspeed" "*glm-5.3-flash-lab" \
+		"*glm-5.3[*" "*glm-5.3-air[*" "*glm-5.3-turbo[*" "*glm-5.3-flash[*" \
+		"*glm-5.3-flash-uncensored[*" "*glm-5.3-free[*" "*glm-5.3-highspeed[*" "*glm-5.3-flash-lab[*" priority=10 {
 		thinking-default-level "max"
 		thinking-efforts "low" "high" "max"
 		thinking-requires-effort #true

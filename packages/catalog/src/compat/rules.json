@@ -5301,7 +5301,7 @@
 				}
 			},
 			{
-				"source": "classes/glm.kdl:109",
+				"source": "classes/glm.kdl:112",
 				"class": "glm",
 				"models": [
 					{
@@ -5339,6 +5339,38 @@
 					{
 						"kind": "glob",
 						"value": "*glm-5.3-flash-lab"
+					},
+					{
+						"kind": "glob",
+						"value": "*glm-5.3[*"
+					},
+					{
+						"kind": "glob",
+						"value": "*glm-5.3-air[*"
+					},
+					{
+						"kind": "glob",
+						"value": "*glm-5.3-turbo[*"
+					},
+					{
+						"kind": "glob",
+						"value": "*glm-5.3-flash[*"
+					},
+					{
+						"kind": "glob",
+						"value": "*glm-5.3-flash-uncensored[*"
+					},
+					{
+						"kind": "glob",
+						"value": "*glm-5.3-free[*"
+					},
+					{
+						"kind": "glob",
+						"value": "*glm-5.3-highspeed[*"
+					},
+					{
+						"kind": "glob",
+						"value": "*glm-5.3-flash-lab[*"
 					}
 				],
 				"priority": 10,

@@ -66,6 +66,9 @@
 ### Fixed
 
 - Fixed GPT-6 Astra compacting early at a 272K-token window with its full window gated behind `/extended-context`: it now defaults to the documented 1.05M-token window.
+### Fixed
+
+- Fixed GLM-5.3 coding models served under bracketed context-variant ids (e.g. `glm-5.3[1M]` on ccswitch-style hosts) losing their `low/high/max` effort ladder and falling back to a generic no-`max` tier.
 
 ## [18.1.12] - 2026-09-06
 
