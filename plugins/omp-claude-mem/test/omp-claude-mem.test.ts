@@ -16,6 +16,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "bun:test";
 import {
 	type ContextInjector,
+	createRecoveringWorkerProbe,
 	FrozenContextStore,
 	createContextInjector,
 	injectContextBlock,
@@ -323,5 +324,24 @@ describe("createContextInjector", () => {
 		} finally {
 			rmSync(dir, { recursive: true, force: true });
 		}
+	});
+});
+
+describe("createRecoveringWorkerProbe", () => {
+	it("worker 首次不可达时只启动一次，启动后重试健康检查", async () => {
+		let healthy = false;
+		let starts = 0;
+		const probe = createRecoveringWorkerProbe(
+			async () => healthy,
+			async () => {
+				starts++;
+				healthy = true;
+			},
+		);
+
+		const [a, b] = await Promise.all([probe(), probe()]);
+		expect(a).toBe(true);
+		expect(b).toBe(true);
+		expect(starts).toBe(1);
 	});
 });

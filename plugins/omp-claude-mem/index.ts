@@ -25,6 +25,7 @@ const DEFAULT_WORKER_PORT = 37777;
 const WORKER_TIMEOUT_MS = 10_000;
 const WORKER_HEALTH_TIMEOUT_MS = 250;
 const CONTEXT_REQUEST_TIMEOUT_MS = 20_000;
+const WORKER_RECOVERY_WAIT_MS = 3_000;
 const CONTEXT_INJECT_TIMEOUT_MS = 3_000;
 const WORKER_INTERACTIVE_TIMEOUT_MS = 2_000;
 const TOOL_RESPONSE_LIMIT = 1000;
@@ -294,6 +295,21 @@ export interface WorkerProbe {
 	(): Promise<boolean>;
 }
 
+type WorkerStarter = () => Promise<void>;
+
+/** 健康检查失败时仅发起一次后台启动，再做一次有界复查。 */
+export function createRecoveringWorkerProbe(probe: WorkerProbe, start: WorkerStarter): WorkerProbe {
+	let starting: Promise<void> | undefined;
+	return async () => {
+		if (await probe()) return true;
+		starting ??= start().finally(() => {
+			starting = undefined;
+		});
+		await Promise.race([starting, Bun.sleep(WORKER_RECOVERY_WAIT_MS)]).catch(() => undefined);
+		return probe();
+	};
+}
+
 export interface ContextInjector {
 	inject(
 		project: string,
@@ -363,6 +379,26 @@ export function createContextInjector(options: {
 	};
 }
 
+async function resolveWorkerStartCommand(): Promise<string[] | undefined> {
+	const cache = join(homedir(), ".claude", "plugins", "cache", "thedotmack", "claude-mem");
+	const versions = await fs.readdir(cache, { withFileTypes: true }).catch(() => []);
+	const roots = [
+		process.env.CLAUDE_PLUGIN_ROOT?.trim(),
+		...versions
+			.filter(entry => entry.isDirectory())
+			.map(entry => join(cache, entry.name))
+			.sort((a, b) => b.localeCompare(a, undefined, { numeric: true })),
+		join(homedir(), ".claude", "plugins", "marketplaces", "thedotmack", "plugin"),
+	].filter((root): root is string => Boolean(root));
+	for (const root of roots) {
+		const runner = join(root, "scripts", "bun-runner.js");
+		const service = join(root, "scripts", "worker-service.cjs");
+		if ((await Bun.file(runner).exists()) && (await Bun.file(service).exists())) {
+			return [process.execPath, runner, service, "start"];
+		}
+	}
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 扩展装配
 // ─────────────────────────────────────────────────────────────────────────────
@@ -391,7 +427,7 @@ export default function claudeMemExtension(pi: ExtensionAPI) {
 		}
 	}
 
-	async function probeWorker(): Promise<boolean> {
+	async function checkWorker(): Promise<boolean> {
 		try {
 			await workerFetch("/api/health", undefined, WORKER_HEALTH_TIMEOUT_MS);
 			workerAvailable = true;
@@ -399,6 +435,14 @@ export default function claudeMemExtension(pi: ExtensionAPI) {
 		} catch {
 			return false;
 		}
+	}
+
+	const probeWorker = createRecoveringWorkerProbe(checkWorker, startWorker);
+
+	async function startWorker(): Promise<void> {
+		const command = await resolveWorkerStartCommand();
+		if (command === undefined) return;
+		await Bun.spawn(command, { stdin: "ignore", stdout: "ignore", stderr: "ignore" }).exited;
 	}
 
 	async function workerPost(path: string, body: Record<string, unknown>): Promise<void> {
