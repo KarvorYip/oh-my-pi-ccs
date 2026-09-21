@@ -5,6 +5,15 @@ import { inheritReferenceThinking, resolveModelReference } from "../src/identity
 import { Effort } from "../src/effort";
 import type { ModelSpec } from "../src/types";
 
+describe("Bundled model references", () => {
+	test("excludes providers isolated from cross-provider bare-id enrichment", () => {
+		const reference = resolveModelReference("glm-5.3-flash", getBundledModelReferenceIndex());
+
+		expect(reference).toBeDefined();
+		expect(reference?.provider).not.toBe("cline-pass");
+	});
+});
+
 describe("Portkey gateway model references", () => {
 	test("@modal ids do not fuzzy-match bundled catalog entries", () => {
 		const index = getBundledModelReferenceIndex();

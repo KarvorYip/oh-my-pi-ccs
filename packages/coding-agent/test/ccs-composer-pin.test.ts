@@ -6,9 +6,9 @@
  * must stay byte-identical to upstream.
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from "bun:test";
-import { TranscriptContainer } from "@oh-my-pi/pi-coding-agent/modes/components/transcript-container";
-import { COMPOSER_DEFAULTS, Composer } from "@oh-my-pi/pi-coding-agent/modes/composer";
-import { initTheme } from "@oh-my-pi/pi-coding-agent/modes/theme/theme";
+import { TranscriptContainer } from "@oh-my-pi/pi-tui/chrome/transcript-container";
+import { COMPOSER_DEFAULTS, Composer } from "@oh-my-pi/pi-tui/prompt/composer";
+import { initTheme } from "@oh-my-pi/pi-tui/theme/theme";
 import type { Component } from "@oh-my-pi/pi-tui";
 import { VirtualRenderScheduler } from "../../tui/test/virtual-render-scheduler";
 import { VirtualTerminal } from "../../tui/test/virtual-terminal";

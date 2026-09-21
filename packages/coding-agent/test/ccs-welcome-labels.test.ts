@@ -4,11 +4,11 @@
  * instead of the raw bundled model identity.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import { KeybindingsManager } from "@oh-my-pi/pi-coding-agent/config/keybindings";
+import { KeybindingsManager } from "@oh-my-pi/pi-tui/app-keybindings";
 import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { COMPOSER_DEFAULTS, Composer } from "@oh-my-pi/pi-coding-agent/modes/composer";
+import { COMPOSER_DEFAULTS, Composer } from "@oh-my-pi/pi-tui/prompt/composer";
 import { InteractiveMode } from "@oh-my-pi/pi-coding-agent/modes/interactive-mode";
-import { initTheme } from "@oh-my-pi/pi-coding-agent/modes/theme/theme";
+import { initTheme } from "@oh-my-pi/pi-tui/theme/theme";
 import * as vcs from "@oh-my-pi/pi-natives/vcs";
 import { VirtualTerminal } from "../../tui/test/virtual-terminal";
 import { createTestSession } from "./utilities";

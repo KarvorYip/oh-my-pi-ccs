@@ -1,6 +1,6 @@
 # ccs-custom 分支使用说明
 
-本分支（`ccs-custom`）是 `can1357/oh-my-pi` 的私用定制线，基线上游 tag（当前 `v18.1.13`）。注入以 commits 形式维护，每次上游发版 `git rebase v<新版本>` 即可——不再依赖对 `dist/cli.js` 的文本锚点补丁。
+本分支（`ccs-custom`）是 `can1357/oh-my-pi` 的私用定制线，现已合并上游 `v18.2.7` 后的最新 `main`。定制改动以 commits 形式维护；同步上游时先拉取远端，再合并至本分支，不依赖对 `dist/cli.js` 的文本锚点补丁。
 
 ## 分支携带的改动
 

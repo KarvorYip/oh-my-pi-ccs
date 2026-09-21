@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { TranscriptContainer } from "@oh-my-pi/pi-coding-agent/modes/components/transcript-container";
+import { TranscriptContainer } from "@oh-my-pi/pi-tui/chrome/transcript-container";
 import { EventController } from "@oh-my-pi/pi-coding-agent/modes/controllers/event-controller";
-import { initTheme } from "@oh-my-pi/pi-coding-agent/modes/theme/theme";
+import { initTheme } from "@oh-my-pi/pi-tui/theme/theme";
 import type { InteractiveModeContext } from "@oh-my-pi/pi-coding-agent/modes/types";
 import type { AgentSessionEvent } from "@oh-my-pi/pi-coding-agent/session/agent-session";
 import type { Component } from "@oh-my-pi/pi-tui";
@@ -24,6 +24,7 @@ function createFixture() {
 		init: async () => {},
 		ui: { requestRender: () => {}, requestComponentRender: () => {} },
 		transcriptMessageComponents: new WeakMap(),
+		servedModelTracker: { check: () => undefined },
 		pendingTools: new Map(),
 		statusLine: { invalidate: () => {}, markActivityStart: () => {} },
 		session: { isAborting: false },
@@ -35,7 +36,10 @@ function createFixture() {
 		effectiveHideThinkingBlock: false,
 		streamingComponent: {
 			setHideThinkingBlock: () => {},
+			isTranscriptBlockFinalized: () => false,
+			setLinkTargets: () => {},
 			markTranscriptBlockFinalized: () => {},
+			setServedModelMismatch: () => {},
 			updateContent: () => {},
 			setCacheInvalidation: () => {},
 			setErrorPinned: () => {},
@@ -148,6 +152,6 @@ describe("bash error live rendering stays inside the framed output block", () =>
 			},
 		} as unknown as Parameters<typeof f.controller.handleEvent>[0];
 
-		await expect(f.controller.handleEvent(event)).resolves.toBeUndefined();
+		await f.controller.handleEvent(event);
 	});
 });
