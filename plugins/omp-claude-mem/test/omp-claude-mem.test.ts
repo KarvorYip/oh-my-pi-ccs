@@ -17,14 +17,19 @@ import { describe, expect, it } from "bun:test";
 import {
 	type ContextInjector,
 	createRecoveringWorkerProbe,
+	encodeQueryParams,
 	FrozenContextStore,
 	createContextInjector,
 	injectContextBlock,
 	type InjectableMessage,
+	memoryContentText,
+	workerResultText,
 	wrapContextBlock,
 } from "../index";
 
-const BLOCK = wrapContextBlock("# [work] recent context, 2026-09-01 4:00pm GMT+8\n### Sep 1, 2026\n48886 3:36p ✓ 修复登录态");
+const BLOCK = wrapContextBlock(
+	"# [work] recent context, 2026-09-01 4:00pm GMT+8\n### Sep 1, 2026\n48886 3:36p ✓ 修复登录态",
+);
 
 function tempDir(): string {
 	return mkdtempSync(join(tmpdir(), "omp-claude-mem-test-"));
@@ -33,6 +38,32 @@ function tempDir(): string {
 function userMessage(text: string): InjectableMessage {
 	return { role: "user", content: [{ type: "text", text }] };
 }
+
+describe("claude-mem 查询协议", () => {
+	it("编码查询参数并省略未提供的过滤项", () => {
+		expect(
+			encodeQueryParams({
+				query: "登录 状态",
+				limit: 20,
+				project: "color-client",
+				dateStart: undefined,
+			}),
+		).toBe("?query=%E7%99%BB%E5%BD%95+%E7%8A%B6%E6%80%81&limit=20&project=color-client");
+	});
+
+	it("同时呈现 MCP content 与批量 HTTP JSON 结果", () => {
+		expect(workerResultText({ content: [{ type: "text", text: "#123 result" }] })).toBe("#123 result");
+		expect(workerResultText([{ id: 123, title: "result" }])).toBe(
+			'[\n  {\n    "id": 123,\n    "title": "result"\n  }\n]',
+		);
+		expect(
+			memoryContentText([
+				{ type: "image", data: "ignored" },
+				{ type: "text", text: "kept" },
+			]),
+		).toBe("kept");
+	});
+});
 
 describe("injectContextBlock", () => {
 	it("在第一条 user 消息内容头部注入块，其它消息不动", () => {
@@ -186,7 +217,11 @@ describe("createContextInjector", () => {
 		try {
 			const store = new FrozenContextStore({ file: join(dir, "f.json"), freshMs: 60_000 });
 			await store.set("proj", "s1", BLOCK);
-			const { injector, fetchCalls } = makeInjector({ store, fetch: async () => "SHOULD NOT FETCH", probe: async () => true });
+			const { injector, fetchCalls } = makeInjector({
+				store,
+				fetch: async () => "SHOULD NOT FETCH",
+				probe: async () => true,
+			});
 			const out = await injector.inject("proj", "s1", [userMessage("hi")]);
 			expect(fetchCalls).toEqual([]);
 			const content = out![0]!.content as Array<{ type?: string; text?: string }>;

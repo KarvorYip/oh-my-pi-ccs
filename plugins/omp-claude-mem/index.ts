@@ -311,11 +311,7 @@ export function createRecoveringWorkerProbe(probe: WorkerProbe, start: WorkerSta
 }
 
 export interface ContextInjector {
-	inject(
-		project: string,
-		sessionId: string,
-		messages: InjectableMessage[],
-	): Promise<InjectableMessage[] | undefined>;
+	inject(project: string, sessionId: string, messages: InjectableMessage[]): Promise<InjectableMessage[] | undefined>;
 	warm(project: string, sessionId: string): Promise<void>;
 }
 
@@ -343,10 +339,7 @@ export function createContextInjector(options: {
 		const existing = inFlight.get(key);
 		if (existing) return existing;
 		const promise = (async () => {
-			const text = await Promise.race([
-				options.fetchContext(project),
-				Bun.sleep(timeoutMs).then(() => undefined),
-			]);
+			const text = await Promise.race([options.fetchContext(project), Bun.sleep(timeoutMs).then(() => undefined)]);
 			if (text === undefined) return undefined;
 			await options.store.set(project, sessionId, text);
 			return text;
@@ -397,6 +390,48 @@ async function resolveWorkerStartCommand(): Promise<string[] | undefined> {
 			return [process.execPath, runner, service, "start"];
 		}
 	}
+}
+
+const MEMORY_QUERY_TOOL_NAMES: Record<string, true> = {
+	memory_recall: true,
+	search: true,
+	timeline: true,
+	get_observations: true,
+	get_tool_uses: true,
+};
+
+export function encodeQueryParams(params: Record<string, unknown>): string {
+	const query = new URLSearchParams();
+	for (const [key, value] of Object.entries(params)) {
+		if (value !== undefined) query.set(key, String(value));
+	}
+	const text = query.toString();
+	return text ? `?${text}` : "";
+}
+
+export function memoryContentText(content: unknown, limit = Number.POSITIVE_INFINITY): string {
+	const chunks =
+		typeof content === "string"
+			? [content]
+			: Array.isArray(content)
+				? content.flatMap(block => {
+						if (!block || typeof block !== "object") return [];
+						const candidate = block as { type?: unknown; text?: unknown };
+						return candidate.type === "text" && typeof candidate.text === "string" ? [candidate.text] : [];
+					})
+				: [];
+	const text = chunks.join("\n");
+	if (text.length <= limit) return text;
+	const suffix = "…[已截断]";
+	return text.slice(0, limit - suffix.length) + suffix;
+}
+
+export function workerResultText(result: unknown): string {
+	if (result && typeof result === "object" && "content" in result) {
+		return memoryContentText(result.content);
+	}
+	if (result === null || result === undefined) return "";
+	return typeof result === "string" ? result : JSON.stringify(result, null, 2);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -453,29 +488,10 @@ export default function claudeMemExtension(pi: ExtensionAPI) {
 		});
 	}
 
-	function contentText(content: unknown, limit = Number.POSITIVE_INFINITY): string {
-		const chunks =
-			typeof content === "string"
-				? [content]
-				: Array.isArray(content)
-					? content.flatMap(block => {
-							if (!block || typeof block !== "object") return [];
-							const candidate = block as { type?: unknown; text?: unknown };
-							return candidate.type === "text" && typeof candidate.text === "string"
-								? [candidate.text]
-								: [];
-						})
-					: [];
-		const text = chunks.join("\n");
-		if (text.length <= limit) return text;
-		const suffix = "…[已截断]";
-		return text.slice(0, limit - suffix.length) + suffix;
-	}
-
 	function lastAssistantText(messages: ReadonlyArray<{ role?: string; content?: unknown }>): string {
 		for (let index = messages.length - 1; index >= 0; index--) {
 			const message = messages[index];
-			if (message?.role === "assistant") return contentText(message.content);
+			if (message?.role === "assistant") return memoryContentText(message.content);
 		}
 		return "";
 	}
@@ -525,19 +541,17 @@ export default function claudeMemExtension(pi: ExtensionAPI) {
 	});
 
 	pi.on("tool_result", (event, ctx) => {
-		if (event.toolName === "memory_recall" || !workerAvailable) return;
+		if (MEMORY_QUERY_TOOL_NAMES[event.toolName] || !workerAvailable) return;
 		const observation = workerPost("/api/sessions/observations", {
 			contentSessionId: ctx.sessionManager.getSessionId(),
 			tool_name: event.toolName,
 			tool_input: event.input,
-			tool_response: contentText(event.content, TOOL_RESPONSE_LIMIT),
+			tool_response: memoryContentText(event.content, TOOL_RESPONSE_LIMIT),
 			cwd: ctx.cwd,
 			platformSource: PLATFORM_SOURCE,
 		}).catch(() => undefined);
 		pendingObservations.add(observation);
-		void observation
-			.finally(() => pendingObservations.delete(observation))
-			.catch(() => undefined);
+		void observation.finally(() => pendingObservations.delete(observation)).catch(() => undefined);
 	});
 
 	pi.on("agent_end", async (event, ctx) => {
@@ -555,6 +569,61 @@ export default function claudeMemExtension(pi: ExtensionAPI) {
 		query: z.string().min(1).describe("自然语言检索词"),
 		limit: z.number().int().min(1).max(100).optional().describe("返回条数，默认 5，最多 100"),
 	});
+	const searchParameters = z.object({
+		query: z.string().optional().describe("搜索词；按日期浏览时可省略"),
+		limit: z.number().int().min(1).max(100).optional().describe("最大结果数，默认 20"),
+		project: z.string().optional().describe("项目名称过滤"),
+		platformSource: z.string().optional().describe("平台来源过滤，例如 claude、codex、pi-agent"),
+		type: z.string().optional().describe("文档类别：observations、sessions 或 prompts"),
+		obs_type: z.string().optional().describe("观察类型过滤，多个值用逗号分隔"),
+		dateStart: z.string().optional().describe("开始日期（ISO 格式）"),
+		dateEnd: z.string().optional().describe("结束日期（ISO 格式）"),
+		offset: z.number().int().min(0).optional().describe("分页偏移"),
+		orderBy: z.enum(["date_desc", "date_asc", "relevance"]).optional().describe("排序方式"),
+	});
+	const timelineParameters = z.object({
+		anchor: z.number().int().positive().optional().describe("时间线中心的观察 ID"),
+		query: z.string().min(1).optional().describe("未提供 anchor 时用于自动定位的查询词"),
+		depth_before: z.number().int().min(0).max(20).optional().describe("中心项之前的条目数"),
+		depth_after: z.number().int().min(0).max(20).optional().describe("中心项之后的条目数"),
+		project: z.string().optional().describe("项目名称过滤"),
+		platformSource: z.string().optional().describe("平台来源过滤"),
+	});
+	const getObservationsParameters = z.object({
+		ids: z.array(z.number().int().positive()).min(1).describe("要读取的观察 ID"),
+		orderBy: z.enum(["date_desc", "date_asc"]).optional().describe("排序方式"),
+		limit: z.number().int().positive().optional().describe("最大返回数"),
+		project: z.string().optional().describe("项目名称过滤"),
+		platformSource: z.string().optional().describe("平台来源过滤"),
+	});
+	const getToolUsesParameters = z.object({
+		ids: z
+			.array(z.union([z.number().int(), z.string().min(1)]))
+			.min(1)
+			.describe("数值 ID 或 tool_use_id"),
+		limit: z.number().int().min(1).max(200).optional().describe("最大返回数"),
+		project: z.string().optional().describe("项目名称过滤"),
+		contentSessionId: z.string().optional().describe("限定到一个内容会话"),
+		platformSource: z.string().optional().describe("平台来源过滤"),
+	});
+
+	async function runMemoryQuery(path: string, params: Record<string, unknown>, method: "GET" | "POST") {
+		if (!(await probeWorker())) {
+			return { content: [{ type: "text" as const, text: "claude-mem 暂时不可用。" }], details: undefined };
+		}
+		const init =
+			method === "POST"
+				? { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(params) }
+				: undefined;
+		const requestPath = method === "GET" ? `${path}${encodeQueryParams(params)}` : path;
+		const result = await workerFetch(requestPath, init, WORKER_INTERACTIVE_TIMEOUT_MS)
+			.then(response => response.json())
+			.catch(() => null);
+		return {
+			content: [{ type: "text" as const, text: workerResultText(result) || "claude-mem 暂时不可用。" }],
+			details: undefined,
+		};
+	}
 
 	pi.registerTool({
 		name: "memory_recall",
@@ -562,31 +631,64 @@ export default function claudeMemExtension(pi: ExtensionAPI) {
 		description: "检索 claude-mem 中跨 Claude、Codex 与 OMP 会话共享的历史记录。",
 		parameters: memoryRecallParameters,
 		approval: "read",
-		async execute(
-			_toolCallId,
-			params: Static<typeof memoryRecallParameters>,
-			_signal,
-			_onUpdate,
-			ctx,
-		) {
+		async execute(_toolCallId, params: Static<typeof memoryRecallParameters>, _signal, _onUpdate, ctx) {
 			const result = (await probeWorker())
 				? await workerFetch(
-					`/api/search?query=${encodeURIComponent(params.query)}&limit=${params.limit ?? 5}&project=${encodeURIComponent(projectName(ctx.cwd))}`,
-					undefined,
-					WORKER_INTERACTIVE_TIMEOUT_MS,
-				)
-					.then(response => response.json())
-					.catch(() => null)
+						`/api/search?query=${encodeURIComponent(params.query)}&limit=${params.limit ?? 5}&project=${encodeURIComponent(projectName(ctx.cwd))}`,
+						undefined,
+						WORKER_INTERACTIVE_TIMEOUT_MS,
+					)
+						.then(response => response.json())
+						.catch(() => null)
 				: null;
-			let resultText = "";
-			if (result && typeof result === "object" && "content" in result) {
-				resultText = contentText(result.content);
-			}
+			const resultText = workerResultText(result);
 			return {
-				content: [{ type: "text" as const, text: resultText || "未找到匹配的历史记录，或 claude-mem 暂时不可用。" }],
+				content: [
+					{ type: "text" as const, text: resultText || "未找到匹配的历史记录，或 claude-mem 暂时不可用。" },
+				],
 				details: undefined,
 			};
 		},
+	});
+
+	pi.registerTool({
+		name: "search",
+		label: "记忆搜索",
+		description: "第一步：搜索跨会话记忆并返回带 ID 的精简索引。",
+		parameters: searchParameters,
+		approval: "read",
+		execute: async (_toolCallId, params: Static<typeof searchParameters>) =>
+			await runMemoryQuery("/api/search", { ...params }, "GET"),
+	});
+
+	pi.registerTool({
+		name: "timeline",
+		label: "记忆时间线",
+		description: "第二步：围绕观察 ID 或查询词读取前后文时间线。",
+		parameters: timelineParameters,
+		approval: "read",
+		execute: async (_toolCallId, params: Static<typeof timelineParameters>) =>
+			await runMemoryQuery("/api/timeline", { ...params }, "GET"),
+	});
+
+	pi.registerTool({
+		name: "get_observations",
+		label: "读取记忆详情",
+		description: "第三步：批量读取筛选后的观察记录完整内容。",
+		parameters: getObservationsParameters,
+		approval: "read",
+		execute: async (_toolCallId, params: Static<typeof getObservationsParameters>) =>
+			await runMemoryQuery("/api/observations/batch", { ...params }, "POST"),
+	});
+
+	pi.registerTool({
+		name: "get_tool_uses",
+		label: "读取原始工具记录",
+		description: "第四步：仅在观察摘要不足时批量读取原始工具输入与输出。",
+		parameters: getToolUsesParameters,
+		approval: "read",
+		execute: async (_toolCallId, params: Static<typeof getToolUsesParameters>) =>
+			await runMemoryQuery("/api/tool-uses/batch", { ...params }, "POST"),
 	});
 
 	pi.registerCommand("memory-status", {

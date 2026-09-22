@@ -106,6 +106,8 @@ omp plugin list        # 应出现 omp-claude-mem@0.1.0
   OpenAI 兼容中继（如百田 codex 线路）的严格前缀缓存不再被击穿。
 - 新鲜度：`memory_recall` 工具按需检索；时间线随新会话 / 缓存 TTL（默认 6h，
   `CLAUDE_MEM_CONTEXT_FRESH_MS` 可调）过期后重新渲染。
+- 完整查询：`mem-search` skill 按 `search → timeline → get_observations → get_tool_uses`
+  分层检索；普通回忆仍可直接使用 `memory_recall`。
 - worker 不可用时先在后台调用已安装 claude-mem 的 `worker-service.cjs start`，等待 3 秒后复查健康；仍不可达才静默降级（不注入、不阻塞请求）。`/api/sessions/init`、observations、summarize 等协议交互与旧版一致。
 
 回退：`omp plugin uninstall omp-claude-mem` 后恢复旧文件即可。
