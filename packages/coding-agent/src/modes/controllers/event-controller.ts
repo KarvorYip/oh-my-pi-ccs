@@ -57,6 +57,7 @@ import { streamingStringKeysForTool, ToolArgsRevealController } from "./tool-arg
 type AgentSessionEventKind = AgentSessionEvent["type"];
 
 const IRC_MESSAGE_VISIBLE_TTL_MS = 10_000;
+const MSYS_TERMINAL_SETTLE_MS = 250;
 /**
  * Concurrent IRC cards allowed in the transcript's live region. Cards land
  * below a still-live block (a running task), where they cannot commit to
@@ -175,6 +176,7 @@ export class EventController {
 	#retryPending = false;
 	#idleCompactionTimer?: NodeJS.Timeout;
 	#idleRecapTimer?: NodeJS.Timeout;
+	#msysTerminalRepaintTimer?: NodeJS.Timeout;
 	// In-flight ephemeral recap turn; aborted by #cancelIdleRecap when any
 	// activity (new turn, compaction, editor draft) supersedes the idle recap.
 	#idleRecapAbort?: AbortController;
@@ -341,6 +343,10 @@ export class EventController {
 		if (this.#messageUpdateTimer) {
 			clearTimeout(this.#messageUpdateTimer);
 			this.#messageUpdateTimer = undefined;
+		}
+		if (this.#msysTerminalRepaintTimer) {
+			clearTimeout(this.#msysTerminalRepaintTimer);
+			this.#msysTerminalRepaintTimer = undefined;
 		}
 		this.#pendingMessageUpdate = undefined;
 		this.#streamingReveal.stop();
@@ -1989,8 +1995,17 @@ export class EventController {
 		}
 		// MSYS can report fork/resource failures directly to the controlling
 		// terminal, bypassing the captured stderr pipe and differential frame.
-		// Repaint once the shell settles so stray bytes cannot remain in the editor.
-		if (event.toolName === "bash") this.ctx.ui.requestRender(true);
+		// Repaint immediately and after process teardown: the runtime can emit the
+		// final diagnostic after tool_execution_end, outside the first repaint.
+		if (event.toolName === "bash") {
+			this.ctx.ui.requestRender(true);
+			clearTimeout(this.#msysTerminalRepaintTimer);
+			this.#msysTerminalRepaintTimer = setTimeout(() => {
+				this.#msysTerminalRepaintTimer = undefined;
+				this.ctx.ui.requestRender(true);
+			}, MSYS_TERMINAL_SETTLE_MS);
+			this.#msysTerminalRepaintTimer.unref?.();
+		}
 	}
 	async #handleAgentEnd(event: Extract<AgentSessionEvent, { type: "agent_end" }>): Promise<void> {
 		// A superseded agent_end: the agent is already streaming a fresh turn, so

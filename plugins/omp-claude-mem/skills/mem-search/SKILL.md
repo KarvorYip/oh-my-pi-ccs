@@ -7,17 +7,17 @@ description: Search claude-mem's persistent cross-session history. Use when the 
 
 Use the narrowest layer that answers the question:
 
-1. `search` → compact index with IDs.
+1. `memory_search` → compact index with IDs.
 2. `timeline` → surrounding chronological context.
 3. `get_observations` → full summaries for selected IDs.
 4. `get_tool_uses` → raw tool input/output only when summaries omit required evidence.
 
 ## Search
 
-Start with `search`. Supply `project` when the question belongs to one codebase.
+Start with `memory_search`. Supply `project` when the question belongs to one codebase.
 
 ```text
-search(query="authentication", limit=20, project="my-project")
+memory_search(query="authentication", limit=20, project="my-project")
 ```
 
 Useful filters:

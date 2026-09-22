@@ -394,7 +394,7 @@ async function resolveWorkerStartCommand(): Promise<string[] | undefined> {
 
 const MEMORY_QUERY_TOOL_NAMES: Record<string, true> = {
 	memory_recall: true,
-	search: true,
+	memory_search: true,
 	timeline: true,
 	get_observations: true,
 	get_tool_uses: true,
@@ -652,7 +652,7 @@ export default function claudeMemExtension(pi: ExtensionAPI) {
 	});
 
 	pi.registerTool({
-		name: "search",
+		name: "memory_search",
 		label: "记忆搜索",
 		description: "第一步：搜索跨会话记忆并返回带 ID 的精简索引。",
 		parameters: searchParameters,

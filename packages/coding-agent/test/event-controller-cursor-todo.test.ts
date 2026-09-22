@@ -29,7 +29,13 @@ function createFixture() {
 		blocks.push(block);
 		addChild(block);
 	});
-	return { ctx, controller: new EventController(ctx), showWarning: vi.spyOn(ctx, "showWarning"), blocks };
+	return {
+		ctx,
+		controller: new EventController(ctx),
+		showWarning: vi.spyOn(ctx, "showWarning"),
+		requestRender: vi.spyOn(ctx.ui, "requestRender"),
+		blocks,
+	};
 }
 
 function expectRetirableResult(block: Component): void {
@@ -325,21 +331,39 @@ describe("EventController + Cursor todo bridge", () => {
 		expect(ctx.pendingTools.size).toBe(0);
 		expect(Bun.stripANSI(blocks[0]!.render(120).join("\n"))).toContain("AGENT_START_MATCH");
 	});
-	it("forces a viewport repaint after bash completes", async () => {
-		const f = createFixture();
-		await f.controller.handleEvent(streamedToolBlock("bash-call-1", "bash", { command: "true" }));
+	it("repaints again after late MSYS terminal writes settle", async () => {
+		vi.useFakeTimers();
+		try {
+			const f = createFixture();
+			await f.controller.handleEvent(streamedToolBlock("bash-call-1", "bash", { command: "true" }));
+			const forcedRendersBeforeEnd = f.requestRender.mock.calls.filter(([force]) => force === true).length;
 
-		await f.controller.handleEvent({
-			type: "tool_execution_end",
-			toolCallId: "bash-call-1",
-			toolName: "bash",
-			isError: false,
-			result: { content: [{ type: "text", text: "done" }] },
-		} as Extract<AgentSessionEvent, { type: "tool_execution_end" }>);
+			await f.controller.handleEvent({
+				type: "tool_execution_end",
+				toolCallId: "bash-call-1",
+				toolName: "bash",
+				isError: false,
+				result: { content: [{ type: "text", text: "done" }] },
+			} as Extract<AgentSessionEvent, { type: "tool_execution_end" }>);
 
-		// Windows/MSYS can bypass captured stderr and paint a `dofork` failure at
-		// the hardware cursor. A normal diff sees an unchanged frame; a forced
-		// repaint rewrites the viewport after the shell process settles.
-		expect(f.ctx.ui.requestRender).toHaveBeenLastCalledWith(true);
+			// MSYS can write a `dofork` failure to the controlling terminal after
+			// tool_execution_end. Repaint now, then once more after that race window.
+			expect(f.requestRender.mock.calls.filter(([force]) => force === true)).toHaveLength(
+				forcedRendersBeforeEnd + 1,
+			);
+			expect(f.requestRender).toHaveBeenLastCalledWith(true);
+			vi.advanceTimersByTime(249);
+			expect(f.requestRender.mock.calls.filter(([force]) => force === true)).toHaveLength(
+				forcedRendersBeforeEnd + 1,
+			);
+			vi.advanceTimersByTime(1);
+			expect(f.requestRender.mock.calls.filter(([force]) => force === true)).toHaveLength(
+				forcedRendersBeforeEnd + 2,
+			);
+			expect(f.requestRender).toHaveBeenLastCalledWith(true);
+			f.controller.dispose();
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });
