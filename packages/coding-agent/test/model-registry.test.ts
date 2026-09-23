@@ -1586,6 +1586,31 @@ describe("ModelRegistry", () => {
 			expect(registry.find("ccswitch-codex-test", "gpt-5.6-sol")?.contextWindow).toBe(272_000);
 		});
 
+		test("ccswitch relay GPT-6 models pin to per-SKU windows with the extended ceiling", async () => {
+			await Settings.init({ inMemory: true });
+			settings.set("extendedContext", false);
+			const registry = readonlyRegistry({
+				providers: {
+					"ccswitch-codex-test": {
+						baseUrl: "http://relay.example.com/v1",
+						apiKey: "TEST_KEY",
+						api: "openai-responses",
+						models: [{ id: "gpt-6-sol" }, { id: "gpt-6-luna" }],
+					},
+				},
+			});
+			// The bridge manifest omits contextWindow: the custom model resolves
+			// the bundled first-party 1.05M reference; the relay pin restores the
+			// relayed account's caps.
+			expect(registry.find("ccswitch-codex-test", "gpt-6-sol")?.contextWindow).toBe(272_000);
+			expect(registry.find("ccswitch-codex-test", "gpt-6-luna")?.contextWindow).toBe(128_000);
+
+			settings.set("extendedContext", true);
+			await registry.reapplyModelPolicies();
+			expect(registry.find("ccswitch-codex-test", "gpt-6-sol")?.contextWindow).toBe(922_000);
+			expect(registry.find("ccswitch-codex-test", "gpt-6-luna")?.contextWindow).toBe(128_000);
+		});
+
 		test("custom gpt-5.4 replacement keeps the hardcoded context window when contextWindow is omitted", () => {
 			const model = openaiGpt54Replace.find("openai", "gpt-5.4");
 			expect(model?.contextWindow).toBe(1_000_000);

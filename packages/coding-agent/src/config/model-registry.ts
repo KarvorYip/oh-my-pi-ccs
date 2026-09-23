@@ -22,7 +22,11 @@ import {
 	clampsContextOverride,
 	resolveMaxContextWindow,
 } from "@oh-my-pi/pi-catalog/compat/context-window";
-import { CODEX_GPT_5_6_CONTEXT_WINDOWS } from "@oh-my-pi/pi-catalog/discovery/codex";
+import {
+	CODEX_GPT_5_6_CONTEXT_WINDOWS,
+	CODEX_GPT_6_CONTEXT_WINDOWS,
+	CODEX_GPT_6_MAX_CONTEXT_WINDOWS,
+} from "@oh-my-pi/pi-catalog/discovery/codex";
 import { applyCatalogMetrics, CatalogMetricsIndex } from "@oh-my-pi/pi-catalog/identity/metrics";
 import { readModelCache } from "@oh-my-pi/pi-catalog/model-cache";
 import {
@@ -2500,10 +2504,28 @@ export class ModelRegistry {
 		if (pinnedWindow !== undefined && model.contextWindow !== pinnedWindow) {
 			model = applyModelOverride(model, { contextWindow: pinnedWindow });
 		}
+		const gpt6Window = this.#codexGpt6RelayWindow(model, extendedContext);
+		if (gpt6Window !== undefined && model.contextWindow !== gpt6Window) {
+			model = applyModelOverride(model, { contextWindow: gpt6Window });
+		}
 		if (!extendedContext && model.provider !== "xai-oauth") {
 			model = this.#applyLongContextClamp(model);
 		}
 		return model;
+	}
+
+	/**
+	 * GPT-6 relay windows: luna pins at its 128K low-tier cap; sol follows the
+	 * astra template with 272K standard and the 922K ceiling restored only
+	 * while `extendedContext` is on. Same provider scope as the GPT-5.6 pin.
+	 */
+	#codexGpt6RelayWindow(model: Model<Api>, extendedContext: boolean): number | undefined {
+		if (model.provider !== "openai-codex" && !model.provider.startsWith("ccswitch-")) return undefined;
+		const id = model.id.replace(/-wm$/, "");
+		const standard = CODEX_GPT_6_CONTEXT_WINDOWS[id];
+		if (standard === undefined) return undefined;
+		const maximum = extendedContext ? CODEX_GPT_6_MAX_CONTEXT_WINDOWS[id] : undefined;
+		return maximum ?? standard;
 	}
 
 	/**

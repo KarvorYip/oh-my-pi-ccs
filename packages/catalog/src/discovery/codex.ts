@@ -30,6 +30,18 @@ export const CODEX_GPT_5_6_CONTEXT_WINDOWS: Readonly<Record<string, number>> = {
 	"gpt-5.6-terra": 1_000_000,
 };
 /**
+ * GPT-6 Codex SKUs on the relayed account: luna keeps the low-tier 128K cap;
+ * sol follows the astra template — 272K standard window with a 922K extended
+ * ceiling the runtime restores while `extendedContext` is on.
+ */
+export const CODEX_GPT_6_CONTEXT_WINDOWS: Readonly<Record<string, number>> = {
+	"gpt-6-luna": 128_000,
+	"gpt-6-sol": 272_000,
+};
+export const CODEX_GPT_6_MAX_CONTEXT_WINDOWS: Readonly<Record<string, number>> = {
+	"gpt-6-sol": 922_000,
+};
+/**
  * Codex advertises worker-mode SKUs under a `-wm` suffix (`gpt-5.6-luna-wm`).
  *
  * Those rows route through the same Codex backend as their plain SKU, but an
