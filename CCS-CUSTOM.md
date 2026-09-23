@@ -17,7 +17,28 @@
 | 9 | `fix(ccs): force-fetch upstream tags` | 上游曾重写 v18.0.7 tag，普通 `--tags` fetch 拒绝覆盖会中止整个同步 |
 | 10 | `fix(ccs): reject version-skewed natives from the bun-global fallback` | 兜底 natives 源版本校验：18.0.9 的码配 18.0.6 的 `.node` 构建期能过、运行期缺 `vcsGitDiscover` 每帧炸（status-line VCS 段） |
 | 11 | `feat(ccs): ship omp-claude-mem as an in-repo plugin with cache-safe injection` | claude-mem 兼容扩展从 `~/.local/bin` 迁入 `plugins/omp-claude-mem/`；记忆时间线改为**每会话一次渲染并冻结**（跨进程 resume 复用同一字节，注入位置固定为第一条 user 消息头部），修复 codex 线路前缀缓存被逐轮追加的易变上下文击穿的问题 |
-| 12 | `fix(catalog): 按 SKU 钉死 GPT-5.6 Codex 上下文窗口` | 订阅版 Codex 各 SKU 真实窗口（luna 128K / terra 272K / sol 1M，>272K 加价层）取代 upstream 全家族 1M floor：`CODEX_GPT_5_6_CONTEXT_WINDOWS` 单一常量落在 discovery、生成期策略与 model-registry 运行时策略（`-wm` 后缀归一，先钉死后走 `extendedContext` 272K 钳制）三层；`models.json` 仅同步三个条目（全量 regen 有约 1 万行无关漂移且当前丢 sol 行） |
+| 12 | `fix(catalog): 按 SKU 钉死 GPT-5.6 Codex 上下文窗口` | 订阅版 Codex 各 SKU 真实窗口（luna 128K / terra 272K / sol 1M，>272K 加价层）取代 upstream 全家族 1M floor：`CODEX_GPT_5_6_CONTEXT_WINDOWS` 单一常量落在 discovery、生成期策略与 model-registry 运行时策略（`-wm` 后缀归一，先钉死后走 `extendedContext` 272K 钳制）三层；`models.json` 仅同步三个条目（全量 regen 有约 1 万行无关漂移且当前丢 sol 行）。（v18.2.11 同步后 terra 已改为 1M 钉值 + 272K 钳制的付费层切换语义，见 #14） |
+| 13 | `fix(ccs): harden memory search and MSYS repaint` | mem-search 工具更名 `memory_search`（避开与内建 search 撞名）；bash 工具结束后 250ms 延迟二次强制重绘，堵 MSYS 晚期 stderr 写穿 TUI 的窗口 |
+| 14 | `Merge origin/main v18.2.11` + `fix(ccs): align terra with sol/astra premium-tier window semantics` | 同步上游 v18.2.11（428 笔）；gpt-5.6-terra 从硬钉 272K 改为 sol 同款语义：1M 钉值 + extendedContext 关闭时 272K 钳制（astra/sol/terra 同一套付费层切换语义，luna 保持 128K 硬钉） |
+| 15 | `fix(ccs): map gpt-6 sol/luna subscription windows` + `fix(ccs): pin gpt-6 sol/luna relay context windows` | gpt-6 窗口映射：sol 走 astra 模板（272K 默认 / 922K 扩展上限），luna 参照 5.6-luna 硬钉 128K；KDL 规则 + TS relay 钉表双层落地（见下节） |
+
+
+## Codex SKU 上下文窗口语义（防再犯）
+
+当前生效策略（`extendedContext` = 设置里的扩展上下文开关）：
+
+| SKU | 默认 | extendedContext 开 | 语义 |
+|---|---|---|---|
+| gpt-6-astra / gpt-6-sol | 272K | 922K | astra 模板：标准价 272K，付费层恢复上限 |
+| gpt-6-luna / gpt-5.6-luna | 128K | 128K | 低档 SKU 硬钉，无扩展上限 |
+| gpt-5.6-terra / gpt-5.6-sol | 272K | 1M | 1M 钉值 + 关闭时 272K 钳制 |
+
+**两层落点，缺一层就复现「显示 1.1M」类问题：**
+
+1. **KDL 层**（`packages/catalog/src/compat/rules/providers/openai-codex.kdl`）：`limits-patch context-window` + `max-context-window`。只作用于 **`openai-codex` 提供方**；改后必须 `bun run gen:compat` 并提交 `rules.json`。
+2. **TS relay 钉表层**（`packages/catalog/src/discovery/codex.ts` 的 `CODEX_GPT_5_6_CONTEXT_WINDOWS` / `CODEX_GPT_6_CONTEXT_WINDOWS` / `CODEX_GPT_6_MAX_CONTEXT_WINDOWS`，消费方 `packages/coding-agent/src/config/model-registry.ts` 的 `#codexGpt56PinnedWindow` / `#codexGpt6RelayWindow`）：**ccswitch-\* 中继自定义模型不走 openai-codex 的 KDL 规则**——中继模型在 manifest 缺 `contextWindow` 时解析第一方 `openai` 参考（1.05M），只有 relay 钉表能压回去。新增/调整 Codex SKU 窗口时两层都要改，并补 `model-registry.test.ts` 的 ccswitch relay 用例。
+
+上游合并注意：upstream 的 `model-registry.test.ts` 断言可能按官方目录写（如 terra 1M）；与 ccs-custom 钉值冲突时以本分支策略为准调整断言，并重放本分支自有测试（合并冲突时以上游版本为基、`git diff <merge-base>..HEAD~1` 重放自有 hunks，勿整体 `--ours`——会丢上游对同文件的更新）。
 
 ## 本机构建与发布
 
