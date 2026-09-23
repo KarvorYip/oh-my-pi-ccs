@@ -18,15 +18,16 @@ const GPT_5_6_CONTEXT_WINDOW = 372_000;
 /**
  * Subscription Codex enforces per-SKU windows that neither the registry (stale
  * 272000 for sol, openai/codex#38917) nor the API docs (family-wide 1.05M)
- * describe: measured against the relayed account, luna caps at 128K, terra at
- * 272K, and sol reaches 1M with >272K input billed at the premium long-context
- * tier. Pin each SKU's real window; registry reports for these slugs are wrong
- * in both directions.
+ * describe: measured against the relayed account, luna caps at 128K while
+ * terra and sol reach 1M, with >272K input billed at the premium long-context
+ * tier. Pin luna's real cap; terra and sol pin at 1M so the runtime's
+ * standard-pricing clamp (272K unless `extendedContext` is on) governs them,
+ * matching the paid-tier toggle.
  */
 export const CODEX_GPT_5_6_CONTEXT_WINDOWS: Readonly<Record<string, number>> = {
 	"gpt-5.6-luna": 128_000,
 	"gpt-5.6-sol": 1_000_000,
-	"gpt-5.6-terra": 272_000,
+	"gpt-5.6-terra": 1_000_000,
 };
 /**
  * Codex advertises worker-mode SKUs under a `-wm` suffix (`gpt-5.6-luna-wm`).
