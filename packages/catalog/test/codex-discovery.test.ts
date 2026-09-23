@@ -177,7 +177,7 @@ describe("Codex model discovery", () => {
 		const sol = result?.models.find(model => model.id === "gpt-5.6-sol");
 		expect(sol?.contextWindow).toBe(1_000_000);
 		const terra = result?.models.find(model => model.id === "gpt-5.6-terra");
-		expect(terra?.contextWindow).toBe(272_000);
+		expect(terra?.contextWindow).toBe(1_000_000);
 		const legacy = result?.models.find(model => model.id === "gpt-5.5");
 		expect(legacy?.contextWindow).toBe(272_000);
 	});
@@ -380,9 +380,10 @@ describe("Codex model discovery", () => {
 		expect(luna?.contextWindow).toBe(128_000);
 		const sol = result?.models.find(model => model.id === "gpt-5.6-sol");
 		expect(sol?.contextWindow).toBe(1_000_000);
-		// Inflated registry reports are pinned back down to the SKU's real cap.
+		// Terra pins at 1M like sol; the runtime's 272K standard-pricing clamp
+		// governs it while extended context is off.
 		const terra = result?.models.find(model => model.id === "gpt-5.6-terra");
-		expect(terra?.contextWindow).toBe(272_000);
+		expect(terra?.contextWindow).toBe(1_000_000);
 		// Non-pinned SKUs keep the actively reported value.
 		const legacy = result?.models.find(model => model.id === "gpt-5.5");
 		expect(legacy?.contextWindow).toBe(272_000);
