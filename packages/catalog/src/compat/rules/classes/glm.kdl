@@ -110,7 +110,7 @@ class "glm" {
 	// never appears in a version token, so the anchor stays as tight as the
 	// bare and `:`-suffixed selectors.
 	models "*glm-5.3" "*glm-5.3-air" "*glm-5.3-turbo" "*glm-5.3-flash" "*glm-5.3:*" \
-		"*glm-5.3-flash-uncensored" "*glm-5.3-free" "*glm-5.3-highspeed" "*glm-5.3-flash-lab" \
+		"*glm-5.3-flash-uncensored" "*glm-5.3-free" "*glm-5.3-highspeed" "*glm-5.3-fast" "*glm-5.3-flash-lab" \
 		"*glm-5.3[*" "*glm-5.3-air[*" "*glm-5.3-turbo[*" "*glm-5.3-flash[*" \
 		"*glm-5.3-flash-uncensored[*" "*glm-5.3-free[*" "*glm-5.3-highspeed[*" "*glm-5.3-flash-lab[*" priority=10 {
 		thinking-default-level "max"

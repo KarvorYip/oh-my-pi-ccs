@@ -32,7 +32,7 @@ describe("ccs-custom composer input pinning", () => {
 			terminal,
 			tuiOptions: { renderScheduler: scheduler },
 			preferences: { ...COMPOSER_DEFAULTS, quiet: false },
-			welcome: { version: "t", modelName: "m", providerName: "p" },
+			welcome: { version: "t" },
 		});
 		composer.setRuntimeChildren([new TranscriptContainer(), new InputBlock()]);
 		composer.start({ playWelcomeIntro: false });
@@ -53,7 +53,7 @@ describe("ccs-custom composer input pinning", () => {
 			terminal,
 			tuiOptions: { renderScheduler: scheduler },
 			preferences: { ...COMPOSER_DEFAULTS, quiet: false },
-			welcome: { version: "t", modelName: "m", providerName: "p" },
+			welcome: { version: "t" },
 		});
 		composer.setRuntimeChildren([new TranscriptContainer(), new InputBlock()]);
 		composer.start({ playWelcomeIntro: false });
@@ -74,7 +74,7 @@ describe("ccs-custom composer input pinning", () => {
 			terminal,
 			tuiOptions: { renderScheduler: scheduler },
 			preferences: { ...COMPOSER_DEFAULTS, quiet: false },
-			welcome: { version: "t", modelName: "m", providerName: "p" },
+			welcome: { version: "t" },
 		});
 		composer.start({ playWelcomeIntro: false });
 
