@@ -1,6 +1,6 @@
 # ccs-custom 分支使用说明
 
-本分支（`ccs-custom`）是 `can1357/oh-my-pi` 的私用定制线，现已合并上游 `v18.2.7` 后的最新 `main`。定制改动以 commits 形式维护；同步上游时先拉取远端，再合并至本分支，不依赖对 `dist/cli.js` 的文本锚点补丁。
+本分支（`ccs-custom`）是 `can1357/oh-my-pi` 的私用定制线，已同步至 `origin/main` 的 `a536558dc2`（2026-10-16，版本 `18.11.1`，含该版本后的 Unreleased 改动）。定制改动以 commits 形式维护；共享分支同步使用 merge，不重写已发布历史，不依赖对 `dist/cli.js` 的文本锚点补丁。
 
 ## 分支携带的改动
 
@@ -21,6 +21,8 @@
 | 13 | `fix(ccs): harden memory search and MSYS repaint` | mem-search 工具更名 `memory_search`（避开与内建 search 撞名）；bash 工具结束后 250ms 延迟二次强制重绘，堵 MSYS 晚期 stderr 写穿 TUI 的窗口 |
 | 14 | `Merge origin/main v18.2.11` + `fix(ccs): align terra with sol/astra premium-tier window semantics` | 同步上游 v18.2.11（428 笔）；gpt-5.6-terra 从硬钉 272K 改为 sol 同款语义：1M 钉值 + extendedContext 关闭时 272K 钳制（astra/sol/terra 同一套付费层切换语义，luna 保持 128K 硬钉） |
 | 15 | `fix(ccs): map gpt-6 sol/luna subscription windows` + `fix(ccs): pin gpt-6 sol/luna relay context windows` | gpt-6 窗口映射：sol 走 astra 模板（272K 默认 / 922K 扩展上限），luna 参照 5.6-luna 硬钉 128K；KDL 规则 + TS relay 钉表双层落地（见下节） |
+| 16 | `Merge upstream v18.8.4 into ccs-custom` (`c83b5a89cf`) | 修复 6.1-sol 思考等级继承；中继窗口改为复用 Codex KDL 轴，删除 GPT-6 TS 硬编码钉表；权威窗口与显式覆盖保持优先 |
+| 17 | 同步 `origin/main` 至 `a536558dc2`（18.11.1） | 保留 CCS 定制并融合上游滚动历史锚点、输入路由、累计用量优化；6.1-sol 跟随上游免费标准窗口提升至 500K，扩展仍为 922K |
 
 
 ## Codex SKU 上下文窗口语义（防再犯）
@@ -30,28 +32,38 @@
 | SKU | 默认 | extendedContext 开 | 语义 |
 |---|---|---|---|
 | gpt-6-astra / gpt-6-sol | 272K | 922K | astra 模板：标准价 272K，付费层恢复上限 |
+| gpt-6.1-sol / gpt-6.1-sol-wm | 500K | 922K | 上游记录 2026-10-11 将 Codex 免费标准窗口提升至 500K；不是默认开启扩展档 |
 | gpt-6-luna / gpt-5.6-luna | 128K | 128K | 低档 SKU 硬钉，无扩展上限 |
 | gpt-5.6-terra / gpt-5.6-sol | 272K | 1M | 1M 钉值 + 关闭时 272K 钳制 |
 
-**两层落点，缺一层就复现「显示 1.1M」类问题：**
+**两层落点，共用政策来源：**
 
-1. **KDL 层**（`packages/catalog/src/compat/rules/providers/openai-codex.kdl`）：`limits-patch context-window` + `max-context-window`。只作用于 **`openai-codex` 提供方**；改后必须 `bun run gen:compat` 并提交 `rules.json`。
-2. **TS relay 钉表层**（`packages/catalog/src/discovery/codex.ts` 的 `CODEX_GPT_5_6_CONTEXT_WINDOWS` / `CODEX_GPT_6_CONTEXT_WINDOWS` / `CODEX_GPT_6_MAX_CONTEXT_WINDOWS`，消费方 `packages/coding-agent/src/config/model-registry.ts` 的 `#codexGpt56PinnedWindow` / `#codexGpt6RelayWindow`）：**ccswitch-\* 中继自定义模型不走 openai-codex 的 KDL 规则**——中继模型在 manifest 缺 `contextWindow` 时解析第一方 `openai` 参考（1.05M），只有 relay 钉表能压回去。新增/调整 Codex SKU 窗口时两层都要改，并补 `model-registry.test.ts` 的 ccswitch relay 用例。
+1. **KDL 层**（`packages/catalog/src/compat/rules/providers/openai-codex.kdl`）：`limits-patch context-window` + `max-context-window`。改后必须 `bun run gen:compat` 并提交 `rules.json`。
+2. **中继投影层**（`packages/coding-agent/src/config/model-registry.ts` 的 `#codexRelayContextWindow`）：`ccswitch-*` 自定义模型使用 `resolveCatalogAxes` 读取 `openai-codex` 的同一组 KDL 输入预算，避免回退到第一方 API 的 1.05M 参考窗口；不再维护 GPT-6 TS 钉表。GPT-5.6 历史 SKU 仍使用 `discovery/codex.ts` 的 `CODEX_GPT_5_6_CONTEXT_WINDOWS`。投影只处理 CCS 中继，避免再次钳制直连提供方已选择的窗口档位；显式模型覆盖随后应用并优先。新增 SKU 应补 `model-registry.test.ts` 的关闭→开启→关闭及 manifest 显式窗口用例。
 
 上游合并注意：upstream 的 `model-registry.test.ts` 断言可能按官方目录写（如 terra 1M）；与 ccs-custom 钉值冲突时以本分支策略为准调整断言，并重放本分支自有测试（合并冲突时以上游版本为基、`git diff <merge-base>..HEAD~1` 重放自有 hunks，勿整体 `--ours`——会丢上游对同文件的更新）。
 
+## v18.8.4 卡顿核验（2026-10-16）
+
+- 旧版本机日志有 `ui.loop-blocked`：最重一次为 `ui.transcript-retire` 阻塞 6344ms、CPU 156ms；仅凭阶段和 CPU 采样不能判定根因或宣称升级已治愈。
+- 最新 main 的 [#15874](https://github.com/can1357/oh-my-pi/pull/15874) 优化长子代理会话状态刷新。运行现有 `bench/subagent-tree-cost.bench.ts` 的真实会话夹具，对照旧提交的聚合实现：8 个子代理各 2000 轮、500 次刷新，旧聚合每次 5.231ms / 新聚合 0.197ms，累计费用校验一致。对照共用新版会话实现，证明的是聚合热点改善，不是完整旧新 CLI 的总延迟。
+- [#15693](https://github.com/can1357/oh-my-pi/issues/15693) 修复表格、tab、思考文本导致的滚动退役停滞；[#15820](https://github.com/can1357/oh-my-pi/pull/15820) 修复历史缺行和乱序；均随本次同步进入，但尚未复现日志中的 6.344 秒等待。
+- [#15787](https://github.com/can1357/oh-my-pi/pull/15787) 减少 Windows 长粘贴期间的逐键终端写入；讨论中报告者仍未见秒级延迟改善，不能视为 [#15757](https://github.com/can1357/oh-my-pi/issues/15757) 的确定治愈。CCS 未覆盖其 `terminal.ts` / `stdin-buffer.ts` 修复路径。
+- 最终本机验证：262 项定向回归通过，四个相关包类型检查通过，`dist/cli.js --smoke-test` 返回 `ok`。经真实 `omp-ccs` 启动链的 ConPTY 冒烟中，13,329 字节 / 120 行粘贴约 102ms 显示卡片，110×30 缩放至 90×24 正确，思考等级从 med 切至 high，进程正常退出。此结果不替代 JetBrains 逐键输入环境或长时间会话的卡顿复测。
+
+
 ## 本机构建与发布
 
-发布脚本随分支分发：仓库根目录 `ccs-selfbuild.py`，不依赖任何机器外文件（终验为内联注入标记检查，不依赖外部补丁器）。
+本次手动 merge 发布按文末「上游同步」流程执行。`ccs-selfbuild.py` 是历史 tag/rebase 自动通道；以下命令仅适用于该通道，不要在已同步最新 main 的共享分支上重放 rebase。
 
 ```powershell
 cd <本仓库克隆目录>
 python ccs-selfbuild.py
 ```
 
-步骤：取 native `omp --version`（`~/.local/bin/omp.exe`）→ `git fetch upstream --tags` → `rebase ccs-custom @ v<版本>`（冲突即 abort 并失败退出）→ 原生 `.node` 就位（`~/.omp/natives/<版本>/`）→ `bun install` → `gen:bundle` → 版本冒烟 + 注入标记终验 → 推送 fork。任一步失败不改动旧 dist。
+脚本步骤：取 native `omp --version`（`~/.local/bin/omp.exe`）→ `git fetch upstream --tags` → `rebase ccs-custom @ v<版本>`（冲突即 abort 并失败退出）→ 原生 `.node` 就位（`~/.omp/natives/<版本>/`）→ `bun install` → `gen:bundle` → 版本冒烟 + 注入标记终验 → 推送 fork。`gen:bundle` 会先清理旧产物，执行前应将整个 dist 备份到仓库外，不能依赖失败自动保留旧 dist。
 
-手动等价：
+历史脚本的手动等价（不是本次 main 同步流程）：
 
 ```powershell
 cd <本仓库克隆目录>
@@ -70,7 +82,8 @@ bun dist\cli.js --version   # 应输出 omp/<版本>
 
 - **产物必须留在本工作副本运行**：`dist/cli.js` 非自包含——`@babel/parser`、`puppeteer-core`、`@oh-my-pi/pi-natives` 是运行时外部依赖，从工作副本 `node_modules` 解析。不要把 dist 拷到别处单独跑。
 - **保持工作副本干净**：selfbuild 前置检查拒绝脏工作树（`dist/`、`.node` 均已 gitignore）。
-- **natives 版本必须精确匹配**：loader 有版本哨兵（`__piNativesV<major>_<minor>_<patch>`），版本不符会在加载期报错。
+- **natives 必须匹配源码能力**：正式发布版本使用 `__piNativesBuildVersion()` 固定槽哨兵（兼容旧 `__piNativesV*`）。main 的 Unreleased 代码可能已新增原生导出，即使包版本相同，正式 release 的 `.node` 也不一定足够；必须调用新增接口冒烟，不能只检查 `--version`。
+- **本次 main 原生包来源**：[目标提交官方 CI](https://github.com/can1357/oh-my-pi/actions/runs/38845332140) 的 `native-addons`，经公开镜像下载后核对整包 SHA256 为 `5ecba1b0351a50932ccb0666f8b8eb6d8a50bae2f7185fa3d0a330057612077a`。Windows baseline 经仓库 `stamp-native-version.ts` 写入 `18.11.1` 后放到标准 `~/.omp/natives/18.11.1/`；旧 release addon 保留在 `18.11.1-release-backup-20261016-174846/`，启动链无需额外环境变量。
 
 ## 本机接线（omp-ccs 启动链）
 
@@ -102,8 +115,8 @@ cd ..\.. && bun test plugins/omp-claude-mem/test/omp-claude-mem.test.ts
 # 冒烟（经 omp-ccs 启动链）
 & ~\.local\bin\omp-ccs.ps1 --version        # omp/<版本>
 
-# 注入语义终验（与构建脚本内置检查同源）
-python ccs-selfbuild.py --skip-push
+# 发布产物后台运行链验证（不会 rebase 或 push）
+bun packages\coding-agent\dist\cli.js --smoke-test
 ```
 
 交互目视：欢迎页显示 CCS 短标签（如 `gpt-5.6-terra`）；输入框贴终端底行不随内容跳动；副栏显示 `⟳ auto`/等级/advisor 徽标。
@@ -160,4 +173,4 @@ CCS 生态其余部分（bridge、provider plugin、omp-routing 扩展）不在�
 
 ## 上游同步
 
-上游发新 tag 后：直接启动一次 `omp-ccs`（自动触发 rebase+重建），或手动跑 `python ccs-selfbuild.py`。启动链的重建条件为**语义化版本比较**（仅 native 更新才重建）——dist 允许领先 native（如 release 尚未发布而手动 `--target-version` 同步），不会被旧 native 拖回。rebase 冲突时脚本失败退出且分支原样，人工解决后重跑。natives 版本必须与构建目标精确一致（脚本强制校验）；`~/.omp/natives/<版本>/` 由对应版本 native omp 首次运行时自解压。完整设计见 claude_settings 仓 `docs/adr/0005-omp-source-selfbuild-channel.md`。
+共享的 `ccs-custom` 分支手动同步：先 `git fetch origin main`，再 `git merge --no-commit --no-ff origin/main`，消解冲突并保留上游结构与 CCS 定制，执行 `bun install --frozen-lockfile`、`bun run gen:compat`、定向测试与类型检查，准备与源码版本精确匹配的 natives 后执行 `bun run gen:bundle`。通过 `omp-self.cmd --version`、`dist/cli.js --smoke-test` 与真实 `omp-ccs` 交互验证后，提交合并并普通 push；不要 force-push 共享历史。`ccs-selfbuild.py` 仍是历史 tag/rebase 自动通道，不用于这条手动 merge 流程。启动链只在 native 语义版本更高时自动重建，因此本次 18.11.1 dist 不会被旧 18.8.4 native 拖回。natives 使用独立版本目录，不覆盖正在运行的 `.node`。
