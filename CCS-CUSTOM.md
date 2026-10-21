@@ -1,6 +1,6 @@
 # ccs-custom 分支使用说明
 
-本分支（`ccs-custom`）是 `can1357/oh-my-pi` 的私用定制线，已同步至 `origin/main` 的 `a536558dc2`（2026-10-16，版本 `18.11.1`，含该版本后的 Unreleased 改动）。定制改动以 commits 形式维护；共享分支同步使用 merge，不重写已发布历史，不依赖对 `dist/cli.js` 的文本锚点补丁。
+本分支（`ccs-custom`）是 `can1357/oh-my-pi` 的私用定制线，已同步至 `origin/main` 的 `d5cd750e41`（2026-10-21，版本 `18.12.5`）。定制改动以 commits 形式维护；共享分支同步使用 merge，不重写已发布历史，不依赖对 `dist/cli.js` 的文本锚点补丁。
 
 ## 分支携带的改动
 
@@ -23,6 +23,7 @@
 | 15 | `fix(ccs): map gpt-6 sol/luna subscription windows` + `fix(ccs): pin gpt-6 sol/luna relay context windows` | gpt-6 窗口映射：sol 走 astra 模板（272K 默认 / 922K 扩展上限），luna 参照 5.6-luna 硬钉 128K；KDL 规则 + TS relay 钉表双层落地（见下节） |
 | 16 | `Merge upstream v18.8.4 into ccs-custom` (`c83b5a89cf`) | 修复 6.1-sol 思考等级继承；中继窗口改为复用 Codex KDL 轴，删除 GPT-6 TS 硬编码钉表；权威窗口与显式覆盖保持优先 |
 | 17 | 同步 `origin/main` 至 `a536558dc2`（18.11.1） | 保留 CCS 定制并融合上游滚动历史锚点、输入路由、累计用量优化；6.1-sol 跟随上游免费标准窗口提升至 500K，扩展仍为 922K |
+| 18 | 同步 `origin/main` 至 `d5cd750e41`（18.12.5） | 保留 CCS 窗口规则与配置警告刷新，融合上游模型连接预热及 Codex 采样参数限制；使用官方 npm 原生包完成本机发布 |
 
 
 ## Codex SKU 上下文窗口语义（防再犯）
@@ -83,7 +84,7 @@ bun dist\cli.js --version   # 应输出 omp/<版本>
 - **产物必须留在本工作副本运行**：`dist/cli.js` 非自包含——`@babel/parser`、`puppeteer-core`、`@oh-my-pi/pi-natives` 是运行时外部依赖，从工作副本 `node_modules` 解析。不要把 dist 拷到别处单独跑。
 - **保持工作副本干净**：selfbuild 前置检查拒绝脏工作树（`dist/`、`.node` 均已 gitignore）。
 - **natives 必须匹配源码能力**：正式发布版本使用 `__piNativesBuildVersion()` 固定槽哨兵（兼容旧 `__piNativesV*`）。main 的 Unreleased 代码可能已新增原生导出，即使包版本相同，正式 release 的 `.node` 也不一定足够；必须调用新增接口冒烟，不能只检查 `--version`。
-- **本次 main 原生包来源**：[目标提交官方 CI](https://github.com/can1357/oh-my-pi/actions/runs/38845332140) 的 `native-addons`，经公开镜像下载后核对整包 SHA256 为 `5ecba1b0351a50932ccb0666f8b8eb6d8a50bae2f7185fa3d0a330057612077a`。Windows baseline 经仓库 `stamp-native-version.ts` 写入 `18.11.1` 后放到标准 `~/.omp/natives/18.11.1/`；旧 release addon 保留在 `18.11.1-release-backup-20261016-174846/`，启动链无需额外环境变量。
+- **18.12.5 原生包来源**：官方 npm `@oh-my-pi/pi-natives-win32-x64@18.12.5`，下载后按 registry 的 SHA-512 integrity 校验：`sha512-vnaPvnIxojxUmewfX5X57OUnWgd5bjR76j38nw+KogUayrapI/edbGr7XFx/6AQsrCfZLZJ0f/19G3JZ6Hh2GQ==`。baseline 原样放到 `~/.omp/natives/18.12.5/`，版本哨兵确认 `18.12.5`，不修改 stamp、不覆盖旧版缓存。
 
 ## 本机接线（omp-ccs 启动链）
 
@@ -173,4 +174,12 @@ CCS 生态其余部分（bridge、provider plugin、omp-routing 扩展）不在�
 
 ## 上游同步
 
-共享的 `ccs-custom` 分支手动同步：先 `git fetch origin main`，再 `git merge --no-commit --no-ff origin/main`，消解冲突并保留上游结构与 CCS 定制，执行 `bun install --frozen-lockfile`、`bun run gen:compat`、定向测试与类型检查，准备与源码版本精确匹配的 natives 后执行 `bun run gen:bundle`。通过 `omp-self.cmd --version`、`dist/cli.js --smoke-test` 与真实 `omp-ccs` 交互验证后，提交合并并普通 push；不要 force-push 共享历史。`ccs-selfbuild.py` 仍是历史 tag/rebase 自动通道，不用于这条手动 merge 流程。启动链只在 native 语义版本更高时自动重建，因此本次 18.11.1 dist 不会被旧 18.8.4 native 拖回。natives 使用独立版本目录，不覆盖正在运行的 `.node`。
+共享的 `ccs-custom` 分支手动同步：先 `git fetch origin main`，再 `git merge --no-commit --no-ff origin/main`，消解冲突并保留上游结构与 CCS 定制，执行 `bun install --frozen-lockfile`，准备与源码版本精确匹配的 natives 后执行 `bun run gen:compat`、定向测试与类型检查，再备份旧 dist 并执行 `bun run gen:bundle`。通过 `omp-self.cmd --version`、`dist/cli.js --smoke-test` 与真实 `omp-ccs` 交互验证后，提交合并并普通 push；不要 force-push 共享历史。`ccs-selfbuild.py` 仍是历史 tag/rebase 自动通道，不用于这条手动 merge 流程。启动链只在 native 语义版本更高时自动重建，不会被旧 native 拖回。natives 使用独立版本目录，不覆盖正在运行的 `.node`。
+
+### 18.12.5 本机发布验证（2026-10-21）
+
+- 8 个定向测试文件共 232 项：首轮 231 项通过，模型注册的一项触发默认 5 秒超时；将超时限额改为 30 秒重跑完整 `model-registry.test.ts`，167 项全部通过。
+- catalog、coding-agent、tui、natives 四个包类型检查通过；`gen:compat` 生成 1093 条规则，`gen:bundle` 成功。
+- dist 与真实 `omp-ccs.ps1 --version` 均返回 `omp/18.12.5`，dist 的 `--smoke-test` 返回 `ok`。
+- 真实启动链 ConPTY 界面显示 18.12.5、CCS 模型短名 `gpt-6.1-sol`、标准窗口 500K；输入文本可见，110×30 缩放至 90×24 后界面正常。未发送模型请求，不代表长会话稳定性验证。
+- 旧 dist 完整备份于 `~/.omp/selfbuild-backups/18.11.1-before-18.12.5-1792552296954/dist/`。
