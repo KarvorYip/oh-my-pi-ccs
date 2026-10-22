@@ -13,6 +13,7 @@
  *
  * 思路来源：https://github.com/ArtemisAI/pi-mem 的 pi-agent-memory 0.3.4（AGPL-3.0）。
  */
+import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import { homedir } from "node:os";
@@ -153,6 +154,8 @@ interface FrozenFileShape {
  * 都拿到同一字节串。TTL 过期后视为缺失，下一个请求重新渲染并覆盖。
  * 并发说明：多进程同时写同一文件时按 key 合并后落盘，极端竞态下以最后一次
  * 完整写入为准（上下文缓存，可接受）。
+ * 各次写入使用独立临时文件；Windows 短暂占用最多重试三次，不删除原缓存。
+ * 持久化最终失败时告警并保留进程内冻结字节，不能中断上下文注入；此时跨进程恢复暂不可用。
  */
 export class FrozenContextStore {
 	readonly file: string;
@@ -173,7 +176,7 @@ export class FrozenContextStore {
 		if (this.#loaded) return;
 		this.#loaded = true;
 		try {
-			const raw = await Bun.file(this.file).text();
+			const raw = await fs.readFile(this.file, "utf8");
 			const parsed = JSON.parse(raw) as FrozenFileShape;
 			if (parsed?.version === 1 && parsed.entries && typeof parsed.entries === "object") {
 				for (const [key, entry] of Object.entries(parsed.entries)) {
@@ -205,13 +208,18 @@ export class FrozenContextStore {
 	async set(project: string, sessionId: string, text: string): Promise<void> {
 		await this.#load();
 		this.#entries.set(FrozenContextStore.key(project, sessionId), { text, renderedAt: Date.now() });
-		await this.#persist();
+		try {
+			await this.#persist();
+		} catch (error) {
+			const code = (error as NodeJS.ErrnoException | undefined)?.code ?? "UNKNOWN";
+			console.warn(`[omp-claude-mem] 冻结上下文持久化失败 (${code})；保留进程内缓存，跨进程恢复暂不可用。`);
+		}
 	}
 
 	async #persist(): Promise<void> {
 		// 落盘前合并磁盘上其它进程写入的条目，缩小多进程竞态窗口。
 		try {
-			const raw = await Bun.file(this.file).text();
+			const raw = await fs.readFile(this.file, "utf8");
 			const parsed = JSON.parse(raw) as FrozenFileShape;
 			if (parsed?.version === 1 && parsed.entries && typeof parsed.entries === "object") {
 				for (const [key, entry] of Object.entries(parsed.entries)) {
@@ -224,9 +232,24 @@ export class FrozenContextStore {
 			// 首次写入或文件损坏：以内存为准
 		}
 		const shape: FrozenFileShape = { version: 1, entries: Object.fromEntries(this.#entries) };
-		const tmp = `${this.file}.tmp`;
-		await Bun.write(tmp, JSON.stringify(shape));
-		await fs.rename(tmp, this.file);
+		const tmp = `${this.file}.${process.pid}.${randomUUID()}.tmp`;
+		try {
+			await fs.writeFile(tmp, JSON.stringify(shape), { flag: "wx" });
+			for (let attempt = 0; ; attempt++) {
+				try {
+					await fs.rename(tmp, this.file);
+					break;
+				} catch (error) {
+					const code = (error as NodeJS.ErrnoException | undefined)?.code;
+					if (process.platform !== "win32" || !["EPERM", "EACCES", "EBUSY"].includes(code ?? "") || attempt >= 3) {
+						throw error;
+					}
+					await Bun.sleep(10 * (attempt + 1));
+				}
+			}
+		} finally {
+			await fs.rm(tmp, { force: true }).catch(() => undefined);
+		}
 	}
 }
 

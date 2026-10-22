@@ -11,9 +11,10 @@
  *    渲染失败不写缓存、下一请求重试；warm 只渲染不注入。
  */
 import { mkdtempSync, rmSync } from "node:fs";
+import * as fs from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, spyOn } from "bun:test";
 import {
 	type ContextInjector,
 	createRecoveringWorkerProbe,
@@ -340,6 +341,36 @@ describe("createContextInjector", () => {
 			const first = turn1![0]!.content as Array<{ type?: string; text?: string }>;
 			expect(first[0]).toEqual({ type: "text", text: BLOCK });
 		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	it("缓存重命名被拒绝时仍保持会话冻结字节且不损坏已有磁盘缓存", async () => {
+		const dir = tempDir();
+		const file = join(dir, "frozen.json");
+		const rename = fs.rename;
+		let restoreRename: (() => void) | undefined;
+		try {
+			const store = new FrozenContextStore({ file, freshMs: 60_000 });
+			await store.set("proj", "existing", "saved context");
+			const renameSpy = spyOn(fs, "rename").mockImplementation(async (source, target) => {
+				if (target === file) throw Object.assign(new Error("cache is locked"), { code: "EPERM" });
+				await rename(source, target);
+			});
+			restoreRename = () => renameSpy.mockRestore();
+			const { injector, fetchCalls } = makeInjector({ store, fetch: async () => BLOCK, probe: async () => true });
+			await injector.warm("proj", "new-session");
+			const first = userMessage("continue task");
+			const turn1 = await injector.inject("proj", "new-session", [first]);
+			const turn2 = await injector.inject("proj", "new-session", [first, userMessage("next turn")]);
+			expect(fetchCalls).toEqual(["proj"]);
+			expect((turn1![0]!.content as Array<{ text?: string }>)[0]!.text).toBe(BLOCK);
+			expect(turn2![0]).toBe(turn1![0]);
+			expect(await store.get("proj", "new-session")).toBe(BLOCK);
+			const persisted = JSON.parse(await fs.readFile(file, "utf8"));
+			expect(persisted.entries["proj::existing"].text).toBe("saved context");
+		} finally {
+			restoreRename?.();
 			rmSync(dir, { recursive: true, force: true });
 		}
 	});
