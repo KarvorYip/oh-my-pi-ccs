@@ -1,6 +1,6 @@
 # ccs-custom 分支使用说明
 
-本分支（`ccs-custom`）是 `can1357/oh-my-pi` 的私用定制线，已同步至 `origin/main` 的 `d5cd750e41`（2026-10-21，版本 `18.12.5`）。定制改动以 commits 形式维护；共享分支同步使用 merge，不重写已发布历史，不依赖对 `dist/cli.js` 的文本锚点补丁。
+本分支（`ccs-custom`）是 `can1357/oh-my-pi` 的私用定制线，当前源码已融合 `origin/main` 的 `33ea58aa7d`（2026-11-04，版本 `18.16.0`）。定制改动以 commits 形式维护；共享分支同步使用 merge，不重写已发布历史，不依赖对 `dist/cli.js` 的文本锚点补丁。
 
 ## 分支携带的改动
 
@@ -24,6 +24,7 @@
 | 16 | `Merge upstream v18.8.4 into ccs-custom` (`c83b5a89cf`) | 修复 6.1-sol 思考等级继承；中继窗口改为复用 Codex KDL 轴，删除 GPT-6 TS 硬编码钉表；权威窗口与显式覆盖保持优先 |
 | 17 | 同步 `origin/main` 至 `a536558dc2`（18.11.1） | 保留 CCS 定制并融合上游滚动历史锚点、输入路由、累计用量优化；6.1-sol 跟随上游免费标准窗口提升至 500K，扩展仍为 922K |
 | 18 | 同步 `origin/main` 至 `d5cd750e41`（18.12.5） | 保留 CCS 窗口规则与配置警告刷新，融合上游模型连接预热及 Codex 采样参数限制；使用官方 npm 原生包完成本机发布 |
+| 19 | 同步 `origin/main` 至 `33ea58aa7d`（18.16.0） | 保留 CCS 定制并适配新版上下文双档、原生错误横幅及用量汇总；本机启动链升级至 Bun 1.4.4，使用独立 18.16.0 natives 缓存 |
 
 
 ## Codex SKU 上下文窗口语义（防再犯）
@@ -84,7 +85,8 @@ bun dist\cli.js --version   # 应输出 omp/<版本>
 - **产物必须留在本工作副本运行**：`dist/cli.js` 非自包含——`@babel/parser`、`puppeteer-core`、`@oh-my-pi/pi-natives` 是运行时外部依赖，从工作副本 `node_modules` 解析。不要把 dist 拷到别处单独跑。
 - **保持工作副本干净**：selfbuild 前置检查拒绝脏工作树（`dist/`、`.node` 均已 gitignore）。
 - **natives 必须匹配源码能力**：正式发布版本使用 `__piNativesBuildVersion()` 固定槽哨兵（兼容旧 `__piNativesV*`）。main 的 Unreleased 代码可能已新增原生导出，即使包版本相同，正式 release 的 `.node` 也不一定足够；必须调用新增接口冒烟，不能只检查 `--version`。
-- **18.12.5 原生包来源**：官方 npm `@oh-my-pi/pi-natives-win32-x64@18.12.5`，下载后按 registry 的 SHA-512 integrity 校验：`sha512-vnaPvnIxojxUmewfX5X57OUnWgd5bjR76j38nw+KogUayrapI/edbGr7XFx/6AQsrCfZLZJ0f/19G3JZ6Hh2GQ==`。baseline 原样放到 `~/.omp/natives/18.12.5/`，版本哨兵确认 `18.12.5`，不修改 stamp、不覆盖旧版缓存。
+- **18.16.0 原生包来源**：官方 npm `@oh-my-pi/pi-natives-win32-x64@18.16.0`，下载后按 registry 的 SHA-512 integrity 校验：`sha512-CeHKS96Qtq6qgDYphsBaUG7t89/NyxI6BavIighZfwuOflQ4lygnQBNSrL9JnHxzeT3qEXtD63Ju1FCDylVmdA==`。baseline 原样放到 `~/.omp/natives/18.16.0/`，版本哨兵确认 `18.16.0`，不修改 stamp、不覆盖旧版缓存。
+- **Bun 至少 1.4.4**：同时检查 PATH 中的 Bun 和 `omp-self.cmd` 实际调用的专用 Bun；只升级前者不能保证 CCS 启动链可用。
 
 ## 本机接线（omp-ccs 启动链）
 
@@ -183,3 +185,14 @@ CCS 生态其余部分（bridge、provider plugin、omp-routing 扩展）不在�
 - dist 与真实 `omp-ccs.ps1 --version` 均返回 `omp/18.12.5`，dist 的 `--smoke-test` 返回 `ok`。
 - 真实启动链 ConPTY 界面显示 18.12.5、CCS 模型短名 `gpt-6.1-sol`、标准窗口 500K；输入文本可见，110×30 缩放至 90×24 后界面正常。未发送模型请求，不代表长会话稳定性验证。
 - 旧 dist 完整备份于 `~/.omp/selfbuild-backups/18.11.1-before-18.12.5-1792552296954/dist/`。
+
+### 18.16.0 本机发布验证（2026-11-04）
+
+- 基线为 `origin/main` 的 `33ea58aa7d`；本地 `main` 已快进至该提交。合并冲突按上游结构融合，保留 CCS 短标签、扩展 action、输入框贴底、MSYS 二次重绘、渲染容错、记忆插件与 SKU 窗口政策。
+- 15 个定向测试文件共 436 项全部通过；catalog、coding-agent、tui、natives 四包类型检查通过。窗口回归覆盖关闭→开启→关闭、显式 maximum 优先及子代理 scope。新版 `Settings.isolated({...})` 使用会话覆写，切换同一键须用 `.override()`，不能用低优先级的 `.set()`。
+- 修正上游锁文件中 5 个 OpenTelemetry catalog 范围与 manifest 不一致的问题，保留依赖解析版本；重新生成导出 viewer 后，`bun install --frozen-lockfile` 通过。`gen:compat` 生成 1146 条规则，`gen:bundle` 成功。
+- dist、`omp-self.cmd` 与真实 `omp-ccs.ps1 --version` 均返回 `omp/18.16.0`；dist 的 `--smoke-test` 返回 `ok`。原生模块实测版本哨兵、PTY 尺寸、VCS 仓库发现及 hashline 解析成功。
+- 真实 `omp-ccs` ConPTY 会话指定 `gpt-6.1-sol`，显示 CCS 短标签、500K 标准窗口，中文输入可见；110×30 缩放至 90×24 后布局正常，思考等级由 med 切至 high 并恢复 med。未发送模型请求，不代表远端推理或长会话稳定性验证。
+- 原默认选择器仍引用目录中已不存在的 `gpt-6-sol`，不带 `--model` 启动会警告并回退；本次未擅改用户模型配置。
+- 旧 dist 完整备份于 `~/.omp/selfbuild-backups/18.12.5-before-18.16.0-1793777469320/dist/`；两处 Bun 的原可执行文件保留为同目录 `bun-before-1.4.4-*.exe`。
+

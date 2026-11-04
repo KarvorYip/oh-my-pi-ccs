@@ -71,7 +71,11 @@ describe("ccs-custom subtitle extension actions", () => {
 			}),
 			extensionRunner: runner,
 		};
-		const ctx = { session, syncComposerShape: () => {} } as unknown as InteractiveModeContext;
+		const ctx = {
+			session,
+			syncComposerShape: () => {},
+			syncExtensionLinks: () => {},
+		} as unknown as InteractiveModeContext;
 		const controller = new ExtensionUiController(ctx);
 		controller.initializeHookRunner({} as never, true);
 

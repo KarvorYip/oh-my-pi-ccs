@@ -41,16 +41,7 @@ describe("ccs-custom welcome labels", () => {
 			ccsLabelsGlobal.__ompCcsWelcomeLabels = new Map([
 				["anthropic/claude-sonnet-4-5", { modelName: "ccs-model-label", providerName: "ccs-provider-label" }],
 			]);
-			mode = new InteractiveMode(
-				testSession.session,
-				"test",
-				undefined,
-				undefined,
-				undefined,
-				undefined,
-				undefined,
-				composer,
-			);
+			mode = new InteractiveMode(testSession.session, "test", undefined, undefined, undefined, undefined, composer);
 			vi.spyOn(mode.statusLine, "watchBranch").mockImplementation(() => {});
 			vi.spyOn(vcs, "git").mockReturnValue(null);
 			vi.spyOn(vcs, "repo").mockReturnValue(null);

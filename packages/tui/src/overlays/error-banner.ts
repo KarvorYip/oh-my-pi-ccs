@@ -30,16 +30,19 @@ export class ErrorBannerComponent extends Container {
 	#expanded = false;
 	#native: NativeNode | undefined;
 
-	constructor(message: string, onDismiss?: () => void) {
+	constructor(message: unknown, onDismiss?: () => void) {
 		super();
-		this.#message = plainText(message).trim();
+		// Normalize before either renderer sees the payload; native descriptions
+		// bypass the terminal preview helpers that already tolerate caught values.
+		const source = message == null ? "" : String(message);
+		this.#message = plainText(source).trim() || "Unknown error";
 		this.#onDismiss = onDismiss;
 		this.addChild(new Spacer(1));
 		this.addChild(new DynamicBorder(str => theme.fg("error", str)));
 		this.addChild(
 			new WidthAwareText(
 				contentWidth =>
-					formatErrorBlock(message, contentWidth, MAX_BANNER_ROWS, (line, index) =>
+					formatErrorBlock(source, contentWidth, MAX_BANNER_ROWS, (line, index) =>
 						index === 0
 							? theme.bold(theme.fg("error", `${theme.status.error} ${line}`))
 							: theme.fg("error", line),

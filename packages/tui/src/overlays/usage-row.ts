@@ -71,9 +71,11 @@ export class TurnUsageTally {
 
 	add(message: AssistantMessage, turnStartedAt: number | undefined): TurnUsageSummary | undefined {
 		const { usage } = message;
-		this.#input += usage.input + usage.cacheWrite + (usage.orchestration?.input ?? 0);
-		this.#output += usage.output + (usage.orchestration?.output ?? 0);
-		this.#cost += usage.cost.total;
+		if (usage) {
+			this.#input += usage.input + usage.cacheWrite + (usage.orchestration?.input ?? 0);
+			this.#output += usage.output + (usage.orchestration?.output ?? 0);
+			this.#cost += usage.cost.total;
+		}
 		if (message.stopReason === "toolUse") return undefined;
 		const summary =
 			this.#input + this.#output > 0 || this.#cost > 0

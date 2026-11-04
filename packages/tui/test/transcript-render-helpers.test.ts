@@ -19,6 +19,10 @@ describe("assistantUsageIsBilled", () => {
 		expect(assistantUsageIsBilled(usage())).toBe(false);
 	});
 
+	it("omits the token badge when a provider failure has no usage payload", () => {
+		expect(assistantUsageIsBilled(undefined)).toBe(false);
+	});
+
 	it("preserves cost transparency for empty replies whose prompt still cost input tokens", () => {
 		expect(assistantUsageIsBilled(usage({ input: 321 }))).toBe(true);
 		expect(assistantUsageIsBilled(usage({ output: 0, cacheRead: 512 }))).toBe(true);
